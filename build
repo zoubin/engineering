@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# https://github.com/LouisBarranqueiro/tranquilpeak-hexo-theme/issues/77
-
-npm install
-bower install
-grunt
-
-grunt buildProd
