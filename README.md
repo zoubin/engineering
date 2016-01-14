@@ -1,5 +1,13 @@
 # 技术积累
 
+- [JavaScript](#javascript)
+  - [ECMAScript](#ecmascript)
+  - [Node.js](#node.js)
+- [工具](#工具)
+  - [vim](#vim)
+  - [mac](#mac)
+- [其它](#其它)
+
 ## JavaScript
 ### ECMAScript
 - [原型](docs/prototype-in-js.md)
@@ -19,7 +27,7 @@
 ### mac
 - [cheat sheet](docs/cheat-sheet-mac.md)
 
-## Other
+## 其它
 
 - [字符编码](docs/character-encoding.md)
 - [随机数生成](docs/random-numbers.md)
