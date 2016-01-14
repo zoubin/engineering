@@ -1,8 +1,4 @@
-title: character encoding
-date: 2014-10-23 17:53:19
-tags:
-  - basics
----
+# Character encoding
 
 介绍字符编码的一些基本概念，以及unicode和utf-8, utf-16, utf-32的基本知识。
 

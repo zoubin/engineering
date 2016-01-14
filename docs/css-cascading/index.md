@@ -1,10 +1,4 @@
-title: css cascading
-date: 2015-09-02 18:51:27
-tags:
-  - css
----
-
-<!-- toc -->
+# CSS Cascading
 
 ## Processing Values
 
@@ -14,7 +8,7 @@ tags:
 
 >The **cascading** and **defaulting** process takes a set of declarations as input, and outputs a specified value for each property on each element.
 
-![value](process-value.png)
+![value](images/process-value.png)
 
 ## Cascading
 

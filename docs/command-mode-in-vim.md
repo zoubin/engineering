@@ -1,8 +1,4 @@
-title: command mode in vim
-tags:
-  - vim
-date: 2014-11-05 19:09:19
----
+# command mode in vim
 
 ## ex Commands
 command|meaning

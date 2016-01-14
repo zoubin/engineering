@@ -1,8 +1,5 @@
-title: motion in vim
-tags:
-  - vim
-date: 2014-11-03 18:11:45
----
+# motion in vim
+
 ## motion command cheat sheet
 ### 单词级别的移动
 命令|特点|含义|示例

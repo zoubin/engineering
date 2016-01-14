@@ -1,8 +1,4 @@
-title: JS中一些有关原型的问题
-date: 2015-11-18 13:59:00
-tags:
-  - javascript
----
+# JS中一些有关原型的问题
 
 ## obj.hasOwnProperty('__proto__') === false
 ```javascript

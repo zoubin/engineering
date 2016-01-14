@@ -1,8 +1,5 @@
-title: cheat sheet - mac os keyboard shortcuts
-date: 2014-11-01 12:09:00
-tags:
-  - cheatsheet
----
+# cheat sheet - mac os keyboard shortcuts
+
 ## 截屏
 |按键|功能|按键|功能|
 |---|---|---|---|

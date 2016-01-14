@@ -1,9 +1,4 @@
-title: cheat sheet - vim
-date: 2014-11-03 09:17:22
-tags:
-  - vim
-  - cheatsheet
----
+# cheat sheet - vim
 
 ## 修改文本
 功能|命令
