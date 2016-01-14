@@ -4,8 +4,6 @@
   - [ECMAScript](#ecmascript)
   - [Node.js](#nodejs)
 - [CSS](#css)
-  - [Cascading](#cascading)
-  - [Layout](#layout)
 - [工具](#工具)
   - [vim](#vim)
   - [mac](#mac)
