@@ -1,4 +1,4 @@
-# Node Stream
+# Node.js Stream
 
 ## 前言
 在构建大型系统时，通常将其拆解为功能独立的若干部分，
@@ -266,6 +266,10 @@ b
 ```
 
 可见，设置`objectMode`后，`push(data)`的数据被原样的输出了。此时，可以生产任意类型的数据。
+
+## 相关
+- [Node.js Stream原理](principles.md)
+- [Node.js Stream程序设计](programming.md)
 
 ## 参考文献
 - [substack#browserify-handbook]
