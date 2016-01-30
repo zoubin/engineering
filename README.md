@@ -5,7 +5,7 @@
 
 ## 2016
 - [HTTP: Authentication](docs/http-security/authentication.md)
-- [NODE: 使用stream进行程序设计](https://github.com/zoubin/streamify-your-node-program)
+- [NODE: Stream入门](docs/node-stream/basics.md)
 
 ## 2015
 - [CSS: Cascading](docs/css-cascading/index.md)
