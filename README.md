@@ -1,39 +1,21 @@
 # 技术积累
 
-- [JavaScript](#javascript)
-  - [ECMAScript](#ecmascript)
-  - [Node.js](#nodejs)
-- [CSS](#css)
-- [工具](#工具)
-  - [vim](#vim)
-  - [mac](#mac)
-- [其它](#其它)
+## Drafts
+- [JS: 原型趣事](docs/prototype-in-js.md)
+- [JS: 异步流程控制](docs/async-control.md)
+- [JS: 迭代器](docs/iterator.md)
 
-## JavaScript
-### ECMAScript
-- [原型](docs/prototype-in-js.md)
-- [异步流程](docs/async-control.md)
-- [迭代器](docs/iterator.md)
+## 2016
+- [HTTP: Authentication](docs/http-security/authentication.md)
+- [NODE: 使用stream进行程序设计](https://github.com/zoubin/streamify-your-node-program)
 
-### Node.js
-- [stream](https://github.com/zoubin/stream-handbook)
-
-## CSS
-- [Cascading](docs/css-cascading/index.md)
-- [Layout](docs/css-layout/index.md)
-
-## 工具
-
-### vim
-- [cheat sheet](docs/cheat-sheet-vim.md)
-- [移动技巧](docs/motion-in-vim.md)
-- [command mode](docs/command-mode-in-vim.md)
-
-### mac
-- [cheat sheet](docs/cheat-sheet-mac.md)
-
-## 其它
-
+## 2015
+- [CSS: Cascading](docs/css-cascading/index.md)
+- [CSS: Layout](docs/css-layout/index.md)
+- [VIM: cheat sheet](docs/cheat-sheet-vim.md)
+- [VIM: 移动技巧](docs/motion-in-vim.md)
+- [VIM: command mode](docs/command-mode-in-vim.md)
+- [MAC: cheat sheet](docs/cheat-sheet-mac.md)
 - [字符编码](docs/character-encoding.md)
 - [随机数生成](docs/random-numbers.md)
 
