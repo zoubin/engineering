@@ -1,5 +1,5 @@
 # Authentication
-《HTTP: The Definitive Guide》阅读笔记。
+《[HTTP: The Definitive Guide]》阅读笔记。
 
 >Authentication means showing some proof of your identify.
 
@@ -177,4 +177,5 @@ blabla
 [MD5]: https://en.wikipedia.org/wiki/MD5
 [basic authentication]: #basic-authentication
 [digest authentication]: #digest-authentication
+[HTTP: The Definitive Guide]: http://www.staroceans.org/e-book/O'Reilly%20-%20HTTP%20-%20The%20Definitive%20Guide.pdf
 
