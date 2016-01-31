@@ -1,29 +1,29 @@
 # HTTPS
 
 ## 安全问题
-**Confidentiality**
+>Confidentiality
 
 保密性。
 防止信息的暴露。
 
-**Integrity**
+>Integrity
 
 完整性。防止信息被篡改。
 
-**Originality**
+>Originality
 
 原创性。
 第三方可能截获请求信息，之后再去向服务器发请求。
 譬如一个下订单的请求，第三方截获后，并不去解密，或是修改，而是将它向服务器反复发送，以达到攻击的目的。
 此种攻击行为称为`replay attack`。
 
-**Timeliness**
+>Timeliness
 
 时效性。
 与`replay attack`不同，第三方截获后，并不反复发送，而只是延迟请求时间。
 譬如一个买入股票的请求，延迟后可能就在一个意想不到的价位入手了。
 
-**Authentication**
+>Authentication
 
 身份认证。
 有些攻击者可能修改DNS解析，将URL解析到他们想要的IP地址。
