@@ -129,11 +129,189 @@ readable.on('data', data => process.stdout.write(data))
 
 #### 可读流的暂停模式
 可以在两种模式下消耗可读流中的数据：暂停模式（paused mode）和流动模式（flowing mode）。
+
 流动模式下，数据会源源不断地生产出来，形成“流动”现象。监听流的`data`事件便可进入该模式，如前面的例子所示。
+
 暂停模式下，需要显示地调用`data = readable.read(n)`从流中获取数据。
 
 不难想像，流动模式下，流中会自动地调用`read(n)`并将数据输出。
 所以，这里先介绍暂停模式下流是如何工作的。
+
+##### 模式转换
+`readable`中有一个维护状态的对象，`readable._readableState`，这里将简称为`state`。
+
+其中中有一个标记，`state.flowing`，是用来判别流的模式的。
+它有三种值：
+* `true`。表示现在流处于流动模式下。
+* `false`。表示现在流处于暂停模式下。
+* `null`。这是流的初始状态。
+
+调用`readable.resume()`可使流进入流动模式，`state.flowing`被设为`true`。
+调用`readable.pause()`可使流进入暂停模式，`state.flowing`被设为`false`。
+
+从前面的例子可以知道，在初始状态下，监听`data`事件，会使流进入流动模式。
+但如果在暂停模式下，监听`data`事件并不会使它进入流动模式。
+
+```js
+const Readable = require('stream').Readable
+
+// 底层数据
+const dataSource = ['a', 'b', 'c']
+
+const readable = Readable()
+readable._read = function () {
+  if (dataSource.length) {
+    this.push(dataSource.shift())
+  } else {
+    this.push(null)
+  }
+}
+
+readable.pause()
+readable.on('data', data => process.stdout.write(data))
+// 无数据输出
+
+```
+
+注意，上面例子中`pause()`方法的调用可以放到`data`事件的监听之后。
+因为触发流动的逻辑是在下一个tick中，在实际流动前会判断`state.flowing`。
+
+##### 从流中取出数据
+上一节中的暂停流没有输出任何数据，那如何消耗一个暂停流中的数据呢？
+
+可读流还提供了`read()`方法，用来实现这个功能。
+```js
+const Readable = require('stream').Readable
+
+// 底层数据
+const dataSource = ['a', 'b', 'c']
+
+const readable = Readable()
+readable._read = function () {
+  if (dataSource.length) {
+    this.push(dataSource.shift())
+  } else {
+    this.push(null)
+  }
+}
+
+readable.pause()
+readable.on('data', data => process.stdout.write('\ndata: ' + data))
+
+var data
+while (data = readable.read()) {
+  process.stdout.write('\nread: ' + data)
+}
+
+```
+
+执行上面的脚本，输出如下：
+```
+
+data: a
+read: a
+data: b
+read: b
+data: c
+read: c
+
+```
+
+可以看到，`read()`的返回值即从流中取出的数据。
+所以，与`_read()`方法是从底层取数据的逻辑不一样，`read()`方法是从流中取数据的逻辑。
+
+注意，这里还特意保留了监听`data`事件的逻辑。
+可以看出，每次`read()`取出数据时，也是触发了`data`事件的。
+因此，虽然在暂停模式下监听`data`事件不会引起状态的变化，但只要有数据被取出，都会触发它。
+
+##### readable事件
+如果将前面的例子异步地`push(data)`，结果如何？
+```js
+const Readable = require('stream').Readable
+
+// 底层数据
+const dataSource = ['a', 'b', 'c']
+
+const readable = Readable()
+readable._read = function () {
+  process.nextTick(() => {
+    if (dataSource.length) {
+      this.push(dataSource.shift())
+    } else {
+      this.push(null)
+    }
+  })
+}
+
+readable.pause()
+readable.on('data', data => process.stdout.write('\ndata: ' + data))
+
+while (readable.read()) ;;
+
+```
+执行上述脚本，可以发现没有任何数据输出。
+
+为了分析原因，下面简化一下`read()`执行时的逻辑：
+
+![read]
+
+可以看出，`read()`实际是从`state.buffer`中取数据。
+`push()`实际上是将数据存入`state.buffer`。
+当`_read()`异步调用`push()`时，会出现`read()`在`state.buffer`为空时拿数据的现象，自然就取不到。
+
+在上面的程序中可用如下代码将`state.buffer`打印出来:
+```js
+process.nextTick(function () {
+  process.stdout.write('buffer: ' + readable._readableState.buffer)
+})
+
+```
+
+这时的输出为：
+```
+buffer: a
+
+```
+
+可见第一次调用`readable.read()`时，并未拿到数据，但触发了一次`push`调用，所以有数据存入了`state.buffer`中。
+
+为了处理这种异步的情况，需要使用`readable`事件：
+```js
+const Readable = require('stream').Readable
+
+// 底层数据
+const dataSource = ['a', 'b', 'c']
+
+const readable = Readable()
+readable._read = function () {
+  process.nextTick(() => {
+    if (dataSource.length) {
+      this.push(dataSource.shift())
+    } else {
+      this.push(null)
+    }
+  })
+}
+
+readable.pause()
+readable.on('data', data => process.stdout.write('\ndata: ' + data))
+
+readable.on('readable', function () {
+  while (readable.read()) ;;
+})
+
+```
+
+输出：
+```
+
+data: a
+data: b
+data: c
+
+```
+
+一旦`read()`没有拿到数据，在`push()`结束时就会触发`readable`事件。
 
 
 
@@ -165,4 +343,5 @@ readable.on('data', data => process.stdout.write(data))
 [迭代器]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols
 [substack#browserify-handbook]: https://github.com/substack/browserify-handbook
 [zoubin#streamify-your-node-program]: https://github.com/zoubin/streamify-your-node-program
+[read]: read.png
 
