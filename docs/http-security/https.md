@@ -1,6 +1,6 @@
 # HTTPS
 
-## 安全问题
+## 安全考虑
 >Confidentiality
 
 保密性。
@@ -9,6 +9,12 @@
 >Integrity
 
 完整性。防止信息被篡改。
+
+>Authentication
+
+身份认证。
+有些攻击者可能修改DNS解析，将URL解析到他们想要的IP地址。
+所以，通常需要确保对方拥有它所声称的身份。
 
 >Originality
 
@@ -23,14 +29,9 @@
 与`replay attack`不同，第三方截获后，并不反复发送，而只是延迟请求时间。
 譬如一个买入股票的请求，延迟后可能就在一个意想不到的价位入手了。
 
->Authentication
-
-身份认证。
-有些攻击者可能修改DNS解析，将URL解析到他们想要的IP地址。
-
-
 ## 数字加密
 通过加密算法来解决保密性的问题。
+这也是解决其它问题的基础。
 
 其基本原理是，发送方通过加密函数，将一段明文（plaintext）转换成密文（ciphertext），
 接收方在收到密文后，使用解密函数将密文再转换成明文。
@@ -44,7 +45,7 @@
 传说凯撒曾使用过一种“三字符旋转”（three-character rotation）加密方式，
 将消息中的每个字母都用字母表中比它排列靠后三个位置的字母替代。
 
-![rot3](rot3.png)
+![rot3]
 
 这里，加密和解密使用的密钥是3.
 
@@ -65,10 +66,14 @@
 
 对于目前的计算机而言，在合理的时间内是无法完成破解的。
 
-![crack-keys](crack-keys.png)
+![crack-keys]
 
 当然，密钥越长，加密和解密耗时就越多。
 所以密钥长度和加密性能间存在一个trade-off。
+
+字母旋转这样的加密方式，其密钥数量一共只有25种（密钥为0就不会修改明文），平均尝试13次就能破解掉。
+加强版的（monoalphabetic ciphers）可以对字母使用一个双射进行任意替换，
+这样的双射一共有`26!`种（包括不做任何变动），在`10^26`量级，穷举的话就不太现实了。
 
 ### 对称加密与非对称加密
 如果加密函数与解密函数使用使用同样的密钥，则称为对称加密，否则称为非对称加密。
@@ -88,76 +93,12 @@
 对称加密中，N个人之间通信，需要两两均确定一个密钥，密钥数量为`N*(N-1)/2`，每个节点需要保管`N-1`个密钥。
 在非对称加密中，N个人一共只产生了`2N`个密钥，且每个节点只需要保管一个私钥。
 
-实际应用中，出于性能考虑，主要的数据加密是通过对称加密进行的。
-非对称加密一般用来进行认证和创建会话密钥。
+软件实现时，对称加密比[RSA]快至少100倍，硬件实现时可快100到10000倍。
+所以非对称加密一般用来进行认证和创建会话密钥。
 
-### RSA
-在现实情况中，第三方可能拿到以下信息：
-
-* 公钥
-* 一段密文
-* 一段消息及对应的密文
-
-公钥非对称加密算法需要保证即使全部拿到以上信息，
-以及知道是用哪种加密算法（甚至实现），都无法破解私钥和密文对应的明文。
-
-[RSA]是一种非常流行的公钥加密算法，它可以做到如上要求。
-其依赖的基本原理是，可以找到三个大整数`e`, `d`, `n`，对于任意的整数`m`，下面的等式都成立：
-
-![rsa-1](https://upload.wikimedia.org/math/4/7/4/474522f25bc32949c42695902c615396.png)
-
-上式左边的运算称为[模幂]，它有`log(ed)`级别的解法。
-在这里它最有用的特点就是，即使知道了`e`, `n`, `m`，也很难计算出`d`。
-
-[RSA]还有个特点，上面加密公式中`e`和`d`是可以交换的，即上面的等式可以推出下面的等式：
-
-![rsa-2](https://upload.wikimedia.org/math/9/c/c/9cc8d72c3d61105fc50a761fa9061fe3.png)
-
-也就是说，发送方可以用自己的私钥对信息进行加密，接收方用发送方的公钥便能解密。
-这个特性对于加密而言没有什么意义，因为大家都能拿到发送方的公钥，也就是说谁都能解密。
-但这个特性恰好可以用来做认证，因为只有发送方才可以进行这样的加密，任何接收方都可以用发送方的公钥来验证收到的消息确实来自所认为的发送方。
-
-Bob发送消息给Alice的过程如下：
-* Alice将`(n, e)`作为公钥告诉Bob，`(n, d)`作为私钥自己保管。
-* Bob想将消息`M`发送给Alice。先将`M`拆解成多个`m`，且`0 ≤ m < n`，`gcd(m, n) = 1`，即`m`小于`n`且与`n`互质。
-  拆解需要用到某种[padding]算法。
-* Bob利用Alice的公钥`(n, e)`对`m`进行加密。
-
-![encode](https://upload.wikimedia.org/math/8/6/b/86bae03c22af912674149ed242f754b9.png)
-
-* 利用前面提到的`e`和`d`可以互换的特性，Alice可以用如下方式从`c`解出`m`，再得到`M`。
-
-![decode](https://upload.wikimedia.org/math/d/4/c/d4c69dd0311459f6be400e7d4a3c5dae.png)
-
-注意，在不知道`d`的情况下，知道`c`，`n`和`e`，是无法算出`m`的。
-这里唯一知道的就是`0 ≤ m < n`，而`n`的长度就是所谓的密钥的长度。
-给定1024位的话，`m`的可能性空间非常大，穷举就不现实了。
-
-#### 公钥与私钥的生成
-如上所述，公钥为`(n, e)`，私钥为`(n, d)`。
-在`n`足够大的情况下，要想秘密（`m`）不被破解，就需要保证上面提到的两点：
-* 可以找到满足条件的`e`, `d`, `n`
-* 从`e`, `n`, `m`无法计算出`d`
-
-事实上，`e`, `d`, `n`的生成过程是这样的：
-* 随机选两个足够大的质数`p`和`q`。
-* `n = pq`。`n`的长度被称为密钥的长度。
-* 计算`n`的欧拉函数值。这个值的含义是，小于等于`n`且与`n`互质的正整数个数。
-```
-φ(n) = φ(p)φ(q) = (p − 1)(q − 1) = n - (p + q -1)
-
-```
-* 选取`e`，使得`1 < e < φ(n)`，且`gcd(e, φ(n)) = 1`，即`e`与`φ(n)`互质。
-  通常选`e = 65537`。`e`就是公钥指数。
-* 从`d⋅e ≡ 1 (mod φ(n))`中计算出`d`，作为私钥指数。
-
-先考虑上面提到的第二点要求：从`e`, `n`, `m`无法计算出`d`。
-从最后计算`d`的表达式可以知道，要得到`d`，必须知道`φ(n)`，但其值是保密的，只能推断。
-由`φ(n) = (p − 1)(q − 1)`可知，从`n = pq`推断出`φ(n)`，则必须对`n`进行因式分解。
-正是因为这个因式分解的难度很大，才使得[RSA]难以破解。
-当`n`很大时（如1024位），可以认为无解。目前已知能破解的最大长度为768位。
-
-关于第一点要求的证明，可见[维基百科#RSA]。
+在发送数据时，发送方选生成一个密钥用于对称加密，称之为会话密钥。
+再使用接收方的公钥对会话密钥进行加密，然后将它发送给接收方，确保会话密钥不被窃取。
+之后便可以用这个会话密钥开始对数据进行对称加密了。
 
 ## 认证
 认证，即能验证某则消息确实来源于某个发送方。
@@ -166,21 +107,9 @@ Bob发送消息给Alice的过程如下：
 当消息可能被篡改时，说消息来源于某个发送方没有什么意义。
 所以，确定消息来源于某个发送方，也就意味着需要验证数据的完整性。
 
-认证器（authenticator）可以用来同时确定某则消息来源于某个发送方，且未被修改。
-
-可以结合加密算法和加密哈希函数来生成认证器。
-
+### 加密哈希函数
 加密哈希函数（cryptographic hash function），可将任意长度的消息映射成一段固定长度的消息摘要（message digest）。
 与校验和类似，将消息摘要置于消息体后，便可用来检验消息是否有被意外修改。
-但由于加密哈希函数并不是什么秘密，所以第三方截获消息后，可以修改完内容，再生成一份摘要，接收方无法辨别。
-所以，单独用加密哈希函数是无法对付恶意篡改者的。
-这个时候就需要使用加密算法了。
-发送方在生成摘要后，可使用密钥再对摘要进行加密，然后附于消息体后发送走。
-
-如果使用对称加密，则密钥只有发送方和接收方知道。
-如果使用非对称加密，则使用的是发送方的私钥，其它方无法对摘要生成同样的加密效果，只能使用发送方的公钥解密出摘要。
-所以，接收方将摘要解密出来后，再使用同样的加密哈希函数从消息体计算出一个摘要，
-如果这两个摘要相等，便可以确定消息确实来源于预期的发送方，且未被篡改。
 
 由于加密哈希函数将任意长度的消息映射成固定长度的摘要，
 本质是将一个无穷空间映射到一个有限空间，
@@ -193,23 +122,44 @@ Bob发送消息给Alice的过程如下：
 
 比较常见的加密哈希函数有[MD5]，[SHA-1]等。
 
+### 消息认证码
+但由于加密哈希函数并不是什么秘密，所以第三方截获消息后，可以修改完内容，再生成一份摘要，接收方无法辨别。
+所以，单独用加密哈希函数是无法对付恶意篡改者的。
+
+发送方在生成摘要时，输入除消息外还可加上密钥（authentication key），这样第三方就无法生成正确的摘要了。
+这个摘要便称为消息认证码（message authentication code），能起到身份认证的作用。
+
+![mac-principle]
+
+以上就是[MAC]的工作原理。
+并未涉及到加密，所以速度较快。
+
+改进版的[HMAC]可以结合[MD5]或[SHA-1]使用。
+
+在认证时需要用到密钥，那如何安全地将这个密钥传给接收方？
+可以使用接收方的公钥进行一次加密再进行传输。
+
 ## 数字签名
 [数字签名]的目的便是验证当前收到的消息是否来自某某，是否有被篡改。
-它使用非对称加密来实现。
+它使用公钥加密来实现。
 
 下面看一个使用[RSA]来进行[数字签名]的例子。
-* A先将消息映射成固定长度的摘要（digest）。譬如使用[MD5]就可以将任意长度的消息映射成128位。
+* Bob先将消息映射成固定长度的摘要（digest）。譬如使用[MD5]就可以将任意长度的消息映射成128位。
 * 使用[RSA]的解密函数`D`将摘要（`c`）映射成签名（`m`）。
   从前面可知`D`是利用私钥做的[模幂]运算，在不知道`d`的情况下，是无法得出`m`的。
-  所以，只有A能生成这个签名。
-* A将计算好的签名连接到信息后，一起发送给B。
-* 如果B想验证收到的消息是否来自A，且是否有被篡改，
-  可以使用A的公钥对签名进行加密，得到摘要，与从消息体计算出来的摘要进行对比。
+  所以，只有Bob能生成这个签名。
+* Bob将计算好的签名连接到信息后，一起发送给Alice。
+* 如果Alice想验证收到的消息是否来自Bob，且是否有被篡改，
+  可以使用Bob的公钥对签名进行加密，得到摘要，与从消息体计算出来的摘要进行对比。
 
-![digital-signature](digital-signature.png)
+![digital-signature-encrypt]
+
+![digital-signature-decrypt]
+
+之所以要引入哈希，是因为公钥加密速度太慢，使用哈希将内容压缩成很短后，可以较快加密。
 
 
-## 数字证书
+## 公钥认证
 有了[数字签名]机制，[数字证书]便很容易实现了。
 
 身份证之所以能证明你的身份，是因为大家相信身份证的颁发机构，以及相信身份证难以造假。
@@ -218,21 +168,212 @@ Bob发送消息给Alice的过程如下：
 证书分为两部分内容，一部分是信息描述，其中包含公钥。
 第二部分是权威机构的签名，即用它的私钥针对第一部分内容生成的一个[数字签名]。
 
-![digital certificate](digital-certificate.png)
+![digital certificate]
 
 网站需要向[CA]申请对应域名的数字证书，[CA]会留下自己的[数字签名]。
 浏览器在与网站通信时，先下载它的证书，检查是哪个[CA]签发的，再找出对应[CA]的公钥，如同[数字签名]中描述的那样进行验证。
 
-![digital certificate verifying](digital-certificate-verify.png)
+![digital certificate verifying]
+
 
 ## HTTPS协议
 
+## 参考
+* [HTTP: The Definitive Guide]
+* [Computer Networks: A Systems Approach]
+* [Computer Networking: A Top-Down Approach]
+
 ## 相关
-* [HTTP: The Definitive Guide](http://www.staroceans.org/e-book/O'Reilly%20-%20HTTP%20-%20The%20Definitive%20Guide.pdf)
-* [Computer Networks: A Systems Approach](http://www.pdfiles.com/pdf/files/English/Networking/Computer_Networks_A_Systems_Approach.pdf)
 * [Crash course on cryptography](http://www.iusmentis.com/technology/encryption/crashcourse/)
 * [阮一峰：RSA算法原理（一）](http://www.ruanyifeng.com/blog/2013/06/rsa_algorithm_part_one.html)
 * [阮一峰：RSA算法原理（二）](http://www.ruanyifeng.com/blog/2013/07/rsa_algorithm_part_two.html)
+
+## 附录
+
+### 穷举法平均尝试次数
+假设密钥数量为`n`，当前有明文`M`和对应的密文`c`，
+则用穷举法将`c`解密成`M`需要尝试的次数平均为`n/2`。
+假定密钥生成算法是完全随机的。
+
+**证明**
+
+将密钥从1到n进行编号，则加密中使用的密钥，其编号为`k`的概率均为`1/n`。
+故：
+* 密钥为1，需要尝试1次，概率为`1/n`
+* 密钥为2，需要尝试2次，概率为`1/n`
+* 密钥为k，需要尝试k次，概率为`1/n`
+* 密钥为n-1，需要尝试n-1次，概率为`1/n`
+* 密钥为n，需要尝试n-1次，概率为`1/n`（尝试完前n-1次均失败，则只剩下一种可能了，没必要再试）
+
+期望值为`n/2 + 1/2 - 1/n`。
+
+总结起来：
+* `n=1`时，不需要尝试。
+* `n=2`时，需要且只需要尝试一次。
+* `n>2`时，平均需要尝试`Math.ceil((n+1)/2)`次。
+
+### Polyalphabetic ciper
+对于monoalphabetic cipher，
+如果攻击者事先知道某些信息，可能就会使破解难度大大降低。
+>For example, if Trudy the intruder is Bob’s wife and suspects Bob of having an affair with Alice, then she might suspect that the names “bob” and “alice” appear in the text. If Trudy knew for certain that those two names appeared in the ciphertext and had a copy of the example ciphertext message above, then she could immediately determine seven of the 26 letter pairings, requiring 10^9 fewer possibilities to be checked by a brute-force method. Indeed, if Trudy suspected Bob of having an affair, she might well expect to find some other choice words in the message as well.
+
+**cipher-text-only attack**
+
+攻击者只能拿到密文。
+
+**known-plaintext attack**
+
+攻击者有部分明文及其对应的密文。
+
+**chosen-plaintext attack**
+
+攻击者可能选择一段明文，并获得其对应的密文，从而将密钥破解。
+譬如前面的字母变换加密方法，攻击都如果能取得以下明文对应的密文，立即就能破解密钥。
+>The quick brown fox jumps over the lazy dog
+
+针对以上情况，可以使用多个monoalphabetic cipher来进行加密。
+譬如有C1, C2两个monoalphabetic，可以考虑使用C1, C2, C2, C1, C2这样的序列来加密。
+即第1个字符用C1，第2,3个字符用C2，第4个字符用C1，第5个字符用C2，从第6个字符开始又用C1，进行循环。
+
+这种加密方法（polyaphabetic encryption）可使同样的字母在不同位置时编码会不一样。
+
+### 对称加密
+对称加密可分为两类：
+* block ciphers
+* stream ciphers
+
+#### block ciphers
+[DES]即一种block cipher
+
+将原消息拆分为固定大小的块再逐块加密。
+
+假定块大小为3位，则块的可能性共有`2^3`种。
+这个块的集合一共有`2^3!`种双射映射到自身。
+每一种映射即一个密钥，故一共有`2^3! = 40320`个密钥。
+
+譬如，假设选取以下映射（密钥）：
+
+输入 | 输出 | 输入 | 输出
+--- | --- | --- | ---
+000 | 110 | 100 | 011
+001 | 111 | 101 | 010
+010 | 101 | 110 | 000
+011 | 100 | 111 | 001
+
+可以将`010110001111`加密成`101000111001`
+
+如果块大小为64，将会有`2^64!`种密钥，很难穷举。
+但同时，存储密钥时需要至少存储`2^64`个输入值。
+所以，直接存储映射表是不可行的。
+
+为此，可以使用函数来模拟映射表。
+* 将64位再拆分成8个8位的小块，每个小块都用一种映射表去处理，
+* 再使用映射将8个小块组合成64位
+* 将组合成的64位再按上面的步骤处理若干次。这样明文中的每一位都会影响密文中的全部（或大部分）位。
+
+![block cipher]
+
+每个密钥决定了算法内部的这些变换。
+>Observe that with a key length of n, there are 2n possible keys. NIST [NIST 2001] estimates that a machine that could crack 56-bit DES in one second (that is, try all 256 keys in one second) would take approx- imately 149 trillion years to crack a 128-bit AES key.
+
+
+#### stream ciphers
+
+
+### 非对称加密
+[RSA]是公钥加密，包括两部分：
+* 生成公钥私钥对
+* 加密和解密算法
+
+#### 生成公钥私钥对
+* 选择两个足够大的质数`p`和`q`。
+  越大[RSA]就越难破解，但加密和解密耗时就越长。
+  推荐的做法是`pq`的量级在1024位。
+* 计算`n = pq`，`z = (p - 1)(q - 1)`。
+* 寻找`e`：`1 < e < n`且`e`与`z`互质。`e`位数不大，通常选择`2^16 + 1 = 65537`。
+* 寻找`d`：`ed - 1`可被`z`整除。
+* `(n, e)`即公钥，`(n, d)`即私钥。
+
+#### 加密与解密
+Bob发送消息给Alice的过程如下：
+* Alice将`(n, e)`作为公钥告诉Bob，`(n, d)`作为私钥自己保管。
+* Bob想将消息`m`（`m < n`）发送给Alice，先用Alice的公钥`(n, e)`对`m`进行加密。
+
+![encode]
+
+* Alice收到`c`后可以用如下方式解出`m`。
+
+![decode]
+
+#### 工作原理
+给定
+
+![encode]
+
+需要证明
+
+![decode]
+
+**证明**
+
+由
+```
+(ab) mod n = (a mod n)(b mod n) mod n
+
+```
+可得
+```
+(c^d) mod n = ((m^e) mod n)^d mod n = (m^(ed)) mod n
+
+```
+
+所以，需要证明的等式转化成
+```
+m = (m^(ed)) mod n
+
+```
+
+这里需要用到如下结论：
+```
+p, q is prime
+n = pq
+z = (p - 1)(q - 1)
+
+then
+(x^y) mod n = (x^(y mod z)) mod n
+
+```
+
+根据上面的结论，所需要证明的等式被进一步转化成：
+```
+m = (m^(ed)) mod n = (m^(ed mod z)) mod n
+
+```
+
+上述等式之所以成立，是因为我们在生成`e`和`d`时，保证了`ed - 1`可被`z`整除，即`(ed) mod z = 1`。
+
+
+可见，[RSA]依赖的基本原理是，可以找到三个大整数`e`, `d`, `n`，对于任意的整数`m`，下面的等式都成立：
+
+![rsa-1]
+
+上式左边的运算称为[模幂]，它有`log(ed)`级别的解法。
+在这里它最有用的特点就是，即使知道了`e`, `n`, `m`，也很难计算出`d`。
+
+上面等式中`e`和`d`是可交换的，即
+
+![rsa-2]
+
+这就是解密的工作原理。
+
+#### 破解复杂度
+假定攻击者拿到了公钥，即知道了`n`和`e`，考虑能否解出`d`。
+
+由于`(ed) mod z = 1`，要得到`d`，必须知道`z`，但其值是保密的，只能推断。
+由`z = (p − 1)(q − 1)`可知，如果知道`p`和`q`，便可得到`z`。
+由于`n = pq`，可以对`n`进行因式分解得到`p`和`q`。
+正是因为这个因式分解的难度很大，才使得[RSA]难以破解。
+当`n`很大时（如1024位），可以认为无解。目前已知能破解的最大长度为768位。
 
 
 [RSA]: https://en.wikipedia.org/wiki/RSA_(cryptosystem)
@@ -246,4 +387,21 @@ Bob发送消息给Alice的过程如下：
 [维基百科#RSA]: https://en.wikipedia.org/wiki/RSA_(cryptosystem)#Proofs_of_correctness
 [CA]: https://en.wikipedia.org/wiki/Certificate_authority
 [DES]: https://en.wikipedia.org/wiki/Data_Encryption_Standard
-
+[Computer Networking: A Top-Down Approach]: http://dl.yazdanpress.com/BOOKS/ENGINEERING/COMPUTER-IT/Computer%20Networking(marked).pdf
+[Computer Networks: A Systems Approach]: http://www.pdfiles.com/pdf/files/English/Networking/Computer_Networks_A_Systems_Approach.pdf
+[HTTP: The Definitive Guide]: http://www.staroceans.org/e-book/O'Reilly%20-%20HTTP%20-%20The%20Definitive%20Guide.pdf
+[decode]: https://upload.wikimedia.org/math/d/4/c/d4c69dd0311459f6be400e7d4a3c5dae.png
+[encode]: https://upload.wikimedia.org/math/8/6/b/86bae03c22af912674149ed242f754b9.png
+[mac-principle]: mac.png
+[MAC]: https://en.wikipedia.org/wiki/Message_authentication_code
+[HMAC]: https://en.wikipedia.org/wiki/Hash-based_message_authentication_code
+[digital-signature]: digital-signature.png
+[digital-signature-encrypt]: digital-signature-encrypt.png
+[digital-signature-decrypt]: digital-signature-decrypt.png
+[digital certificate]: digital-certificate.png
+[digital certificate verifying]: digital-certificate-verify.png
+[block cipher]: block-cipher.png
+[rsa-1]: https://upload.wikimedia.org/math/4/7/4/474522f25bc32949c42695902c615396.png
+[rsa-2]: https://upload.wikimedia.org/math/9/c/c/9cc8d72c3d61105fc50a761fa9061fe3.png
+[rot3]: rot3.png
+[crack-keys]: crack-keys.png

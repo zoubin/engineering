@@ -9,7 +9,7 @@
 
 本系列试着从三个方面介绍[stream]相关的内容，这三部分各自独立，无须从头至尾全部读完。
 * 第一部分：[stream]入门。介绍[stream]接口的基本使用。
-* 第二部分：[stream]底层实现管窥。重点剖析[stream]底层是如何支持流式数据处理的，以及[stream]提供的`backpressure mechanism`是如何实现的。
+* 第二部分：[stream]底层实现管窥。重点剖析[stream]底层是如何支持流式数据处理的，以及[stream]提供的背压机制是如何实现的。
 * 第三部分：介绍如何使用[stream]进行程序设计。这部分会着重解析[Browserify]和[Gulp]的[stream]设计模式，并基于[stream]构建一个为[Git]仓库自动生成changelog的应用。
 
 ## Stream入门
