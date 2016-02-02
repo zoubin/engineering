@@ -134,7 +134,7 @@ readable.on('data', data => process.stdout.write(data))
 
 暂停模式下，需要显示地调用`data = readable.read(n)`从流中获取数据。
 
-不难想像，流动模式下，流中会自动地调用`read(n)`并将数据输出。
+不难想像，流动模式下，流会自动地调用`read(n)`并将数据输出。
 所以，这里先介绍暂停模式下流是如何工作的。
 
 ##### 模式转换
@@ -224,8 +224,19 @@ read: c
 可以看出，每次`read()`取出数据时，也是触发了`data`事件的。
 因此，虽然在暂停模式下监听`data`事件不会引起状态的变化，但只要有数据被取出，都会触发它。
 
+下图是`read()`执行时的简化逻辑。
+
+![read]
+
+从中可以看出，`read()`实际是从`state.buffer`中取数据，而`push()`实际上是将数据存入`state.buffer`。
+
+`state.length`即缓存的数据量。
+
+`state.reading`表示是否正在从底层取数据。
+调用`_read()`时被设为`true`，接下来的`push()`调用均会重设为`false`。
+
 ##### readable事件
-如果将前面的例子异步地`push(data)`，结果如何？
+如果将前面的例子修改为异步地调用`push(data)`，结果如何？
 ```js
 const Readable = require('stream').Readable
 
@@ -250,16 +261,9 @@ while (readable.read()) ;;
 
 ```
 执行上述脚本，可以发现没有任何数据输出。
+这是因为当`_read()`异步调用`push()`时，会出现`read()`在`state.buffer`为空时拿数据的现象，自然就取不到。
 
-为了分析原因，下面简化一下`read()`执行时的逻辑：
-
-![read]
-
-可以看出，`read()`实际是从`state.buffer`中取数据。
-`push()`实际上是将数据存入`state.buffer`。
-当`_read()`异步调用`push()`时，会出现`read()`在`state.buffer`为空时拿数据的现象，自然就取不到。
-
-在上面的程序中可用如下代码将`state.buffer`打印出来:
+可以试着将`state.buffer`打印出来:
 ```js
 process.nextTick(function () {
   process.stdout.write('buffer: ' + readable._readableState.buffer)
@@ -273,7 +277,7 @@ buffer: a
 
 ```
 
-可见第一次调用`readable.read()`时，并未拿到数据，但触发了一次`push`调用，所以有数据存入了`state.buffer`中。
+可见第一次调用`readable.read()`时，并未拿到数据，但触发了（下一个tick中）一次`push`调用，所以有数据存入了`state.buffer`中。
 
 为了处理这种异步的情况，需要使用`readable`事件：
 ```js
@@ -311,9 +315,39 @@ data: c
 
 ```
 
-一旦`read()`没有拿到数据，在`push()`结束时就会触发`readable`事件。
+对于暂停流来说，`push(data)`时如果`state.needReadable`为`true`，则会触发`readable`事件。
+这个事件会在下一个tick中触发，并且做了去重处理。
+所以如果之前多次`push(data)`时要求`readable`事件，这里也只会触发一次。
 
+`state.needReadable`初始值为`false`，在执行`read()`时遇到下面几种情况则会修改为`true`：
+* 调用`_read()`前缓存为空。
+* 未能从缓存中取到数据。
+* 从缓存中取出数据后导致缓存为空，且还可以从底层获取数据（没有调用过`push(null)`）。
 
+上面的逻辑就保证了，一旦`read()`没拿到数据，`push(data)`时就会触发`readable`事件。
+所以能够持续不断地将数据读完。
+
+可见，上面的`while`循环其实就是试图将缓存清空，一旦清空就会导致`push(data)`添加数据时引起另一轮的清理。
+
+上面的例子中`read()`的调用引发了`readable`事件的触发（如果`read()`引起`push(data)`的调用而不是`push(null)`），
+`readable`事件的触发进而引起`read()`的调用。
+究竟最开始是调用了`read()`还是触发了`readable`事件？
+
+首次监听`readable`事件时，会将`state.needReadable`设为`true`。
+如果没有正在从底层读数据（`state.reading`为`false`）的话，会在下一个tick中调用`read(0)`。
+
+虽然`read(0)`并不会从`state.buffer`中取数据（因为需要的数据量为0），
+但是如果数据量足够（不需要调用`_read()`从底层取），则会触发`readable`事件。
+如果数据量不够，则会调用`_read()`，进而导致`push(data)`的调用，从而触发`readable`事件。
+
+所以，上面问题的答案就是，最初是从`read(0)`开始的，进而到`readable`事件，再到`read()`，然后再`readable`事件，如此循环。
+
+**注意**：这里关于`readable`事件的触发时机分析是针对暂停流的。
+在流动模式下，如果异步地执行`push(data)`，可能就不会将数据放入缓存，而是直接触发`data`事件输出了。
+
+概括起来说，在暂停模式下，读取数据时如果出现了缓存数据不足的情况，
+则在新进数据时就会通过`readable`事件通知消耗方再次尝试`read()`。
+还可以调用`read(0)`来诱发`readable`事件。
 
 #### 可读流的流动模式
 
