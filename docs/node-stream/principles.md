@@ -48,7 +48,7 @@ fs.createReadStream(__dirname + '/ua.txt').pipe(process.stdout)
 图中一共有三方：底层（数据源），流，下游（数据目的地）。
 其中流做为数据流转中介，负责将数据从底层传给下游。
 
-下面分别描述一下流与下游和底层的交互。
+下面分别描述流与下游和底层的交互。
 
 下游监听流的`data`事件，以接收流输出的数据。
 需要数据时，调用流的`read`方法请求数据。
@@ -122,8 +122,8 @@ readable.on('data', data => process.stdout.write(data))
 
 暂停模式下，需要显示地调用`read()`，触发`data`事件。
 
-可读流对象`readable`中有一个维护状态的对象，`readable._readableState`，这里将简称为`state`。
-其中中有一个标记，`state.flowing`，是用来判别流的模式的。
+可读流对象`readable`中有一个维护状态的对象，`readable._readableState`，这里简称为`state`。
+其中有一个标记，`state.flowing`，是用来判别流的模式的。
 它有三种可能值：
 * `true`。表示目前是流动模式。
 * `false`。表示目前是暂停模式。
@@ -354,14 +354,14 @@ if (doRead) {
 
 ```
 
-可见，在第一个分支的情况下调用`read(0)`时，
+在`push()`第一个分支中调用`read(0)`时，
 由于缓存为空（`state.length`为0），故一定会调用`_read()`，
 进而引起`push()`的调用，于是流动就行成了。
 
-如果进入第二个分支，`chunk`会被入到缓存中。
-此时有两种情部。
+如果进入第二个分支，`chunk`会被添加到缓存中。
+此时有两种情况：
 * `state.length`为0。
-  此时，只可能是同步调用`push()`。
+  只可能是同步调用`push()`。
   从上面`read()`调用`_read()`时的逻辑可以看出，`state.needReadable`为`true`。
   因此，一定会调用`emitReadable()`。
   这个方法会在下一个tick中触发`readable`事件，同时再调用`flow()`，从而形成流动。
@@ -372,8 +372,7 @@ if (doRead) {
 
 综合以上两种情况，便知`resume()`会使底层数据源源不断地被读取出来。
 同时，从`doRead`的赋值可知，缓存中的底层数据被限制在了`state.highWaterMark`。
-每当`read()`从缓存中取走一部分数据时，都会尽量将缓存中的数据被至这个阈值。
-但只要缓存中的数据超过这个阈值，便不会从底层取数据。
+每当`read()`从缓存中取走一部分数据时，都会尽量使缓存中的数据量保持在这个阈值，不够时才不会从底层取数据。
 
 此外，从`push()`的两个分支可以看出来，如果`state.flowing`设为`false`，
 第一个分支便不会再进去，也就不会再调用`read(0)`，
@@ -385,13 +384,13 @@ if (doRead) {
 考虑下面的例子：
 ```js
 const fs = require('fs')
-fs.createReadStream(file).on('data', doSomethingWith)
+fs.createReadStream(file).on('data', doSomething)
 
 ```
 
 从前面对[流式数据生产原理]的介绍中可知，
-监听`data`事件后文件中的内容便立即开始源源不断地传给了`doSomethingWith()`。
-如果`doSomethingWith`处理数据较慢，就需要缓存来不及处理的数据`data`。
+监听`data`事件后文件中的内容便立即开始源源不断地传给`doSomething()`。
+如果`doSomething`处理数据较慢，就需要缓存来不及处理的数据`data`。
 即使同时处理这些数据，也需要全部存储。
 
 理想的情况是下游消耗一个数据，上游才生产一个新数据，这样整体的内存使用就能保持在一个水平。
@@ -404,11 +403,11 @@ fs.createReadStream(file).pipe(writable)
 
 ```
 
-`writable`是一个可写流对象，上游会调用其`write`方法将数据写入其中。
+`writable`是一个可写流[`Writable`]对象，上游调用其`write`方法将数据写入其中。
 `writable`内部维护了一个写队列，当这个队列长度达到某个阈值（`state.highWaterMark`）时，
-执行`write()`返回便为`false`，否则为`true`。
+执行`write()`时返回`false`，否则返回`true`。
 
-于是上游可以根据`write()`的返回值来在流动模式和暂停模式间切换。
+于是上游可以根据`write()`的返回值在流动模式和暂停模式间切换：
 ```js
 readable.on('data', function (data) {
   if (false === writable.write(data)) {
@@ -428,15 +427,16 @@ writable.on('drain', function () {
 但是当`writable`将缓存清空时，会触发一个`drain`事件，再调用`readable.resume()`使上游进入流动模式，
 继续触发`data`事件。
 
-可以认为，在上面的机制下，随着下游缓存队列的增加，上游写数据时受到的阻力变大，
-[背压]（[back pressure]）大到一定程度上游便停止写，需要等到[背压]降低时再继续。
+可以认为，在上面的机制下，随着下游缓存队列的增加，上游写数据时受到的阻力变大。
+这种[背压]（[back pressure]）大到一定程度时上游便停止写，等到[背压]降低时再继续。
 当然，这里上游对[背压]的反应只是停止或继续，并没有连续变化。
 
 使用`pipe()`时，数据的生产和消耗便形成了一个闭环。
 通过负反馈调节上游的数据生产节奏，事实上形成了一种所谓的拉式流（[pull stream]）。
+
 用喝饮料来说明拉式流和普通流的区别的话，
-后者就像是将杯子里的饮料往嘴里倾倒，动力来源于上游，数据是被推往下游的；
-前者则是用吸管去喝饮料，动力实际来源于下游，数据是被拉去下游的。
+普通流就像是将杯子里的饮料往嘴里倾倒，动力来源于上游，数据是被推往下游的；
+拉式流则是用吸管去喝饮料，动力实际来源于下游，数据是被拉去下游的。
 
 ### 需要注意的几个问题
 
@@ -529,6 +529,7 @@ Error: stream.push() after EOF
 
 [Node.js]: https://nodejs.org/
 [stream]: https://nodejs.org/api/stream.html
+[Writable]: https://nodejs.org/api/stream.html#stream_class_stream_writable_1
 [Browserify]: https://github.com/substack/node-browserify
 [Gulp]: https://github.com/gulpjs/gulp
 [Git]: https://git-scm.com/
