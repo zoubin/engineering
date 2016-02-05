@@ -1,80 +1,67 @@
-# Node.js Stream
-
-## 前言
-在构建大型系统时，通常将其拆解为功能独立的若干部分，
-这些部分的接口都遵循一定的规范，通过某种方式连接起来，以共同完成较复杂的任务。
-
-在unix中，shell通过管道`|`连接各部分，其输入输出的规范是文本流。
-在[Node.js]中，内置的[stream]模块也实现了类似功能，组件间通过`.pipe()`连接。
-
-本系列试着从三个方面介绍[stream]相关的内容，这三部分各自独立，无须从头至尾全部读完。
-* 第一部分：[stream]入门。介绍[stream]接口的基本使用。
-* 第二部分：[stream]底层实现管窥。重点剖析[stream]底层是如何支持流式数据处理的，以及[stream]提供的背压机制是如何实现的。
-* 第三部分：介绍如何使用[stream]进行程序设计。这部分会着重解析[Browserify]和[Gulp]的[stream]设计模式，并基于[stream]构建一个为[Git]仓库自动生成changelog的应用。
-
-## Stream原理
-主要解释[stream]的两个重要特点：流式数据与背压机制（backpressure mechanism）。
+## Node.js Stream进阶
+主要解释[stream]的两个重要特点：流式数据与[背压]机制（[back pressure]）。
 
 ### 流式数据生产原理
-假定需要处理一个文件。
-一般地读取方法就是将整个文件全部读到内存里，
-而流式读取是分多次读取，避免一次将所有内容全放到内存里。
+所谓“流式数据”，是指按时间先后到达的数据序列。
 
+在下面这个读取文件内容的例子中，文件内容被一次性读入内存，供消耗方使用。
 ```js
 const fs = require('fs')
+fs.readFile(__dirname + '/ua.txt', function (err, body) {
+  console.log(body)
+  console.log(body.toString())
+})
 
-// 正常读取
-// fileContents是所有内容
-const fileContents = fs.readFileSync(file)
+```
+其特点是文件全部内容同时可用。
 
-// 流式读取
-const fileStream = fs.createReadStream(file)
-// data先后多次生产，是连续的内容片段
-fileStream.on('data', data => handle(data))
+但如果文件内容较大时，上面的做法就有很多问题。
+譬如`ua.txt`在440M时，执行上述代码的输出为：
+```
+<Buffer 64 74 09 75 61 09 63 6f 75 6e 74 0a 0a 64 74 09 75 61 09 63 6f 75 6e 74 0a 32 30 31 35 31 32 30 38 09 4d 6f 7a 69 6c 6c 61 2f 35 2e 30 20 28 63 6f 6d ... >
+buffer.js:382
+    throw new Error('toString failed');
+    ^
+
+Error: toString failed
+    at Buffer.toString (buffer.js:382:11)
 
 ```
 
-使用流式读取的好处是，其数据源可以是无穷无尽的，不受内存限制。
+可见，这种一次获取全部内容的做法，对内存要求太高，有些内置的操作甚至无法完成。
 
-普通数据生产，需要一下子将所有数据全生产出来并存起来慢慢消耗，就好比用水需要将整个水库搬回家。
-流式数据生产，则像是用一根管道将水库的水引回家使用。
-上面的`fs.createReadStream`就像是往文件接了根管道，使内容逐渐“流”出来。
-如果是按行处理，则处理完一行后便可以不再存储它，从而起到节省内存的效果。
-当然，在流式数据生产时，消耗方是按时间顺序连续地获取到数据片段的，它要有处理这种“流式”数据的能力。
-
-本小节主要介绍可读流是如何触发这些`data`事件的，即如何流式地产生数据的。
-
-下面用`Readable`表示可读流类，`readable`为一个可读流实例。
-
-#### 数据是如何添加到可读流中的
-创建`Readable`对象`readable`时，需要为它提供`_read()`方法，这个方法的功能便是从底层读取数据。
-譬如前面的`fileStream._read()`就会从文件中读取一部分内容。
-
-在一次`_read()`调用中，通过调用`push(data)`方法，将从底层读取到的数据`data`放到流中。
-当底层数据耗尽时，必须调用`push(null)`来通知流，此后就不能再往流中添加数据了。
-
-可以同步地调用`push()`，如：
+此时，可以考虑流式读取。
 ```js
-const Readable = require('stream').Readable
-
-// 底层数据
-const dataSource = ['a', 'b', 'c']
-
-const readable = Readable()
-readable._read = function () {
-  if (dataSource.length) {
-    this.push(dataSource.shift())
-  } else {
-    this.push(null)
-  }
-}
-
-readable.on('data', data => process.stdout.write(data))
-// abc
+const fs = require('fs')
+fs.createReadStream(__dirname + '/ua.txt').pipe(process.stdout)
 
 ```
 
-也可异步地调用`push()`，如：
+`fs.createReadStream`会创建一个可读流，将`ua.txt`中的数据逐块输出，形成一个按时间到达的数据序列。
+因此，每一时刻只需要储存一小块数据，从而避免了一次性读取的内存限制问题。
+
+#### 数据流转
+前面用`fs.createReadStream`读取文件内容的过程可用下图描述：
+
+![data-flow]
+
+图中一共有三方：底层（数据源），流，下游（数据目的地）。
+其中流做为数据流转中介，负责将数据从底层传给下游。
+
+下面分别描述一下流与下游和底层的交互。
+
+下游监听流的`data`事件，以接收流输出的数据。
+需要数据时，调用流的`read`方法请求数据。
+如果流的缓存中有足够的数据，`read()`会取出所需要的量的数据，
+作为返回值返回，同时触发`data`事件，传输数据。
+否则，需要从底层获取再以`data`事件传输，同时`read()`返回`null`。
+
+当流需要从底层获取数据时，调用`_read`方法。
+该方法由流的实现方提供，用于获取底层数据，并调用流的`push`方法传输给流。
+譬如`fs.createReadStream()`创建的流中，`_read()`会调用[`fs.read()`]以获取文件内容。
+可见，很多情况下从底层取数据是比较耗时的，`_read()`中会异步地调用`push()`。
+
+下面是一个异步调用`push()`的例子：
 ```js
 const Readable = require('stream').Readable
 
@@ -97,14 +84,12 @@ readable.on('data', data => process.stdout.write(data))
 
 ```
 
-因此，`_read()`是从底层将数据取出来的逻辑，而`push()`方法是将数据放入流中的逻辑。
+由于流产生的是一个按时间先后到达的数据序列，所以底层需要显示地告诉流数据的终点。
+具体便是调用`push(null)`。
 
-在底层还有底层数据时，`_read()`会被调用去获取数据。
-如果不以某种方式告诉流底层已无数据，它会一直去调用`_read()`。
-这种方式即调用`push(null)`。
-一旦调用过`push(null)`，便不能再调用`push(data)`，流也不会再调用`_read()`。
-
-所以，还可以这样去使用流：
+前面提到，当流需要从底层获取数据时，才会调用`_read`方法。
+如果不需要，则甚至可以不用实现`_read`。
+所以还可以像下面这样去使用流：
 ```js
 const Readable = require('stream').Readable
 
@@ -123,63 +108,35 @@ readable.on('data', data => process.stdout.write(data))
 
 ```
 
-上面的例子中并没有为`readable`实现`_read`方法，因为在读取第一段数据时，已经调用过`push(null)`，也就再也不会调用`_read()`了。
-实际中很少会这样使用，这里主要用来说明`_read`和`push`的功能。
+在上面的例子中，一次性将所有数据都放到了流中，
+后面再调用`read()`时，发现已经调用过`push(null)`，便不再调用`_read()`，
+所以即使不去实现`_read`方法，也不会出错。
+不过这种情况需要将所有数据全存到缓存中，与一次读取没有本质区别，实际用处不大。
+这里列出来，是对`_read`方法说明的一个补充。
 
-
-#### 可读流的暂停模式
+#### 数据消耗模式
 可以在两种模式下消耗可读流中的数据：暂停模式（paused mode）和流动模式（flowing mode）。
 
-流动模式下，数据会源源不断地生产出来，形成“流动”现象。监听流的`data`事件便可进入该模式，如前面的例子所示。
+流动模式下，数据会源源不断地生产出来，形成“流动”现象。
+监听流的`data`事件便可进入该模式，如前面的例子所示。
 
-暂停模式下，需要显示地调用`data = readable.read(n)`从流中获取数据。
+暂停模式下，需要显示地调用`read()`，触发`data`事件。
 
-不难想像，流动模式下，流会自动地调用`read(n)`并将数据输出。
-所以，这里先介绍暂停模式下流是如何工作的。
-
-##### 模式转换
-`readable`中有一个维护状态的对象，`readable._readableState`，这里将简称为`state`。
-
+可读流对象`readable`中有一个维护状态的对象，`readable._readableState`，这里将简称为`state`。
 其中中有一个标记，`state.flowing`，是用来判别流的模式的。
-它有三种值：
-* `true`。表示现在流处于流动模式下。
-* `false`。表示现在流处于暂停模式下。
+它有三种可能值：
+* `true`。表示目前是流动模式。
+* `false`。表示目前是暂停模式。
 * `null`。这是流的初始状态。
 
 调用`readable.resume()`可使流进入流动模式，`state.flowing`被设为`true`。
 调用`readable.pause()`可使流进入暂停模式，`state.flowing`被设为`false`。
 
-从前面的例子可以知道，在初始状态下，监听`data`事件，会使流进入流动模式。
+#### 暂停模式
+在初始状态下，监听`data`事件，会使流进入流动模式。
 但如果在暂停模式下，监听`data`事件并不会使它进入流动模式。
+为了消耗流，需要显示调用`read()`方法。
 
-```js
-const Readable = require('stream').Readable
-
-// 底层数据
-const dataSource = ['a', 'b', 'c']
-
-const readable = Readable()
-readable._read = function () {
-  if (dataSource.length) {
-    this.push(dataSource.shift())
-  } else {
-    this.push(null)
-  }
-}
-
-readable.pause()
-readable.on('data', data => process.stdout.write(data))
-// 无数据输出
-
-```
-
-注意，上面例子中`pause()`方法的调用可以放到`data`事件的监听之后。
-因为触发流动的逻辑是在下一个tick中，在实际流动前会判断`state.flowing`。
-
-##### 从流中取出数据
-上一节中的暂停流没有输出任何数据，那如何消耗一个暂停流中的数据呢？
-
-可读流还提供了`read()`方法，用来实现这个功能。
 ```js
 const Readable = require('stream').Readable
 
@@ -198,9 +155,10 @@ readable._read = function () {
 readable.pause()
 readable.on('data', data => process.stdout.write('\ndata: ' + data))
 
-var data
-while (data = readable.read()) {
+var data = readable.read()
+while (data !== null) {
   process.stdout.write('\nread: ' + data)
+  data = readable.read()
 }
 
 ```
@@ -217,26 +175,21 @@ read: c
 
 ```
 
-可以看到，`read()`的返回值即从流中取出的数据。
-所以，与`_read()`方法是从底层取数据的逻辑不一样，`read()`方法是从流中取数据的逻辑。
+可以看到：
+* 监听`data`事件能获取到每个数据。
+* `read()`方法在这里每次都返回了数据。
 
-注意，这里还特意保留了监听`data`事件的逻辑。
-可以看出，每次`read()`取出数据时，也是触发了`data`事件的。
-因此，虽然在暂停模式下监听`data`事件不会引起状态的变化，但只要有数据被取出，都会触发它。
-
-下图是`read()`执行时的简化逻辑。
+下图是此处`read()`执行时的简化逻辑。
 
 ![read]
 
-从中可以看出，`read()`实际是从`state.buffer`中取数据，而`push()`实际上是将数据存入`state.buffer`。
+从图中可知，每次执行`read()`时，调用`_read()`，而`_read()`中同步地调用`push()`，
+将数据写入`state.buffer`，故`read()`在调用完`_read()`后可立即获得该数据，
+从而每次都能返回数据。
 
-`state.length`即缓存的数据量。
-
-`state.reading`表示是否正在从底层取数据。
-调用`_read()`时被设为`true`，接下来的`push()`调用均会重设为`false`。
-
-##### readable事件
-如果将前面的例子修改为异步地调用`push(data)`，结果如何？
+不难推测，如果异步地调用`push()`，则由于`_read()`执行完后，数据来不及放入缓存，
+将出现`read()`返回`null`的现象。
+见下面的示例：
 ```js
 const Readable = require('stream').Readable
 
@@ -257,27 +210,10 @@ readable._read = function () {
 readable.pause()
 readable.on('data', data => process.stdout.write('\ndata: ' + data))
 
-while (readable.read()) ;;
+while (null !== readable.read()) ;
 
 ```
 执行上述脚本，可以发现没有任何数据输出。
-这是因为当`_read()`异步调用`push()`时，会出现`read()`在`state.buffer`为空时拿数据的现象，自然就取不到。
-
-可以试着将`state.buffer`打印出来:
-```js
-process.nextTick(function () {
-  process.stdout.write('buffer: ' + readable._readableState.buffer)
-})
-
-```
-
-这时的输出为：
-```
-buffer: a
-
-```
-
-可见第一次调用`readable.read()`时，并未拿到数据，但触发了（下一个tick中）一次`push`调用，所以有数据存入了`state.buffer`中。
 
 为了处理这种异步的情况，需要使用`readable`事件：
 ```js
@@ -301,7 +237,7 @@ readable.pause()
 readable.on('data', data => process.stdout.write('\ndata: ' + data))
 
 readable.on('readable', function () {
-  while (readable.read()) ;;
+  while (null !== readable.read()) ;;
 })
 
 ```
@@ -315,54 +251,276 @@ data: c
 
 ```
 
-对于暂停流来说，`push(data)`时如果`state.needReadable`为`true`，则会触发`readable`事件。
-这个事件会在下一个tick中触发，并且做了去重处理。
-所以如果之前多次`push(data)`时要求`readable`事件，这里也只会触发一次。
+当`read()`返回`null`时，意味着当前缓存数据不够，而且底层数据还没加进来（异步调用`push()`），
+为了能知道什么时候能接收到新数据，需要流提供一个事件，即`readable`事件。
+当`push()`将数据放入缓存后，就会触发`readable`事件，于是继续执行`read()`就能拿到数据了。
 
-`state.needReadable`初始值为`false`，在执行`read()`时遇到下面几种情况则会修改为`true`：
-* 调用`_read()`前缓存为空。
-* 未能从缓存中取到数据。
-* 从缓存中取出数据后导致缓存为空，且还可以从底层获取数据（没有调用过`push(null)`）。
+所以，在上面的例子中，调用`read()`可能触发`readable`事件，从而继续`read()`，
+直到`push(null)`，此后`read()`不会再调用`_read()`，也就跳出了这个循环。
 
-上面的逻辑就保证了，一旦`read()`没拿到数据，`push(data)`时就会触发`readable`事件。
-所以能够持续不断地将数据读完。
+但在上面的例子中，`read()`是在`readable`事件回调中执行的，那第一次`readable`事件是如何触发的呢？
 
-可见，上面的`while`循环其实就是试图将缓存清空，一旦清空就会导致`push(data)`添加数据时引起另一轮的清理。
+原来，`Readable`中的`readable`事件与`data`事件一样，在监听时都做了特殊处理。
+这里，首次监听`readable`事件时，会触发一次`read(0)`的调用。
+虽然`read(0)`不消耗流的数据，但在执行时，流会发现自己的缓存是空的，
+从而调用`_read()`引起`push()`调用，于是启动了循环。
 
-上面的例子中`read()`的调用引发了`readable`事件的触发（如果`read()`引起`push(data)`的调用而不是`push(null)`），
-`readable`事件的触发进而引起`read()`的调用。
-究竟最开始是调用了`read()`还是触发了`readable`事件？
+总之，在暂停模式下需要使用`readable`事件和`read`方法来消耗流。
 
-首次监听`readable`事件时，会将`state.needReadable`设为`true`。
-如果没有正在从底层读数据（`state.reading`为`false`）的话，会在下一个tick中调用`read(0)`。
+#### 流动模式
+流动模式使用起来更简单一些。
 
-虽然`read(0)`并不会从`state.buffer`中取数据（因为需要的数据量为0），
-但是如果数据量足够（不需要调用`_read()`从底层取），则会触发`readable`事件。
-如果数据量不够，则会调用`_read()`，进而导致`push(data)`的调用，从而触发`readable`事件。
+一般创建流后，监听`data`事件，
+或者通过`pipe`方法将数据导向另一个可写流，即可进入流动模式开始消耗数据。
+尤其是`pipe`方法中还提供了[背压]机制，所以使用`pipe`进入流动模式的情况非常普遍。
 
-所以，上面问题的答案就是，最初是从`read(0)`开始的，进而到`readable`事件，再到`read()`，然后再`readable`事件，如此循环。
+本节解释`data`事件如何能触发流动模式，下节介绍[背压]原理时再详说`pipe`方法。
 
-**注意**：这里关于`readable`事件的触发时机分析是针对暂停流的。
-在流动模式下，如果异步地执行`push(data)`，可能就不会将数据放入缓存，而是直接触发`data`事件输出了。
+先看一下`Readable`是如何处理`data`事件的监听的：
+```js
+Readable.prototype.on = function (ev, fn) {
+  var res = Stream.prototype.on.call(this, ev, fn)
+  if (ev === 'data' && false !== this._readableState.flowing) {
+    this.resume()
+  }
 
-概括起来说，在暂停模式下，读取数据时如果出现了缓存数据不足的情况，
-则在新进数据时就会通过`readable`事件通知消耗方再次尝试`read()`。
-还可以调用`read(0)`来诱发`readable`事件。
+  // 处理readable事件的监听
+  // 省略
 
-#### 可读流的流动模式
+  return res
+}
 
-`readable.read(n)`是`Readable`提供的读取数据的方法。
-它里面会调用`_read()`去底层获取数据到流中，如果已经调用过`push(null)`，则`read()`不会再调用`_read()`。
+```
 
-所以，可以这样去构造一个简单
+`Stream`继承自[`EventEmitter`]，且是`Readable`的父类。
+从上面的逻辑可以看出，在将`fn`加入事件队列后，如果发现处于非暂停模式，则会调用`this.resume()`，
+从而开始了流动模式。
+
+`resume()`方法先将`state.flowing`设为`true`，
+然后会在下一个tick中执行`flow`，试图将缓存读空：
+```js
+if (state.flowing) do {
+  var chunk = stream.read()
+} while (null !== chunk && state.flowing)
+
+```
+
+`flow`中每次`read()`都可能触发`push()`的调用，
+而`push()`中又可能触发`flow()`或`read()`的调用，
+这样就形成了数据生生不息的流动。
+其关系可简述为：
+
+![flowing-mode]
+
+下面再详细看一下`push()`的两个分支：
+```js
+if (state.flowing && state.length === 0 && !state.sync) {
+  stream.emit('data', chunk)
+  stream.read(0)
+} else {
+  state.length += state.objectMode ? 1 : chunk.length
+  state.buffer.push(chunk)
+
+  if (state.needReadable)
+    emitReadable(stream)
+}
+
+```
+
+在第一个分支的情况下，`push()`是异步地被调用的，
+所以无法在`read()`往缓存中取数据前将`chunk`放进缓存，
+也就是说`read()`返回值一定不会为`chunk`。
+同时，由于当前缓存为空，所以`chunk`即序列中的下一个数据。
+由于以上两个原因，可直接通过`data`事件输出`chunk`。
+
+下面是`read(n)`中调用`_read()`的逻辑：
+```js
+var doRead = state.needReadable
+
+if (state.length === 0 || state.length - n < state.highWaterMark)
+  doRead = true
+
+if (state.ended || state.reading)
+  doRead = false
+
+if (doRead) {
+  state.reading = true
+  state.sync = true
+  if (state.length === 0)
+    state.needReadable = true
+  this._read(state.highWaterMark)
+  state.sync = false
+}
+
+```
+
+可见，在第一个分支的情况下调用`read(0)`时，
+由于缓存为空（`state.length`为0），故一定会调用`_read()`，
+进而引起`push()`的调用，于是流动就行成了。
+
+如果进入第二个分支，`chunk`会被入到缓存中。
+此时有两种情部。
+* `state.length`为0。
+  此时，只可能是同步调用`push()`。
+  从上面`read()`调用`_read()`时的逻辑可以看出，`state.needReadable`为`true`。
+  因此，一定会调用`emitReadable()`。
+  这个方法会在下一个tick中触发`readable`事件，同时再调用`flow()`，从而形成流动。
+* `state.length`不为0。
+  由于流动模式下，每次都是从缓存中取第一个元素，所以这时`read()`返回的一定不为`null`。
+  故`flow()`中的循环还在继续。
 
 
+综合以上两种情况，便知`resume()`会使底层数据源源不断地被读取出来。
+同时，从`doRead`的赋值可知，缓存中的底层数据被限制在了`state.highWaterMark`。
+每当`read()`从缓存中取走一部分数据时，都会尽量将缓存中的数据被至这个阈值。
+但只要缓存中的数据超过这个阈值，便不会从底层取数据。
+
+此外，从`push()`的两个分支可以看出来，如果`state.flowing`设为`false`，
+第一个分支便不会再进去，也就不会再调用`read(0)`，
+同时第二个分支中`flow()`也不会再调用`read()`，
+这就完全暂停了底层数据的读取。
+事实上，`pause()`方法中就是这样使流从流动模式转换到暂停模式的。
 
 ### 背压原理
+考虑下面的例子：
+```js
+const fs = require('fs')
+fs.createReadStream(file).on('data', doSomethingWith)
+
+```
+
+从前面对[流式数据生产原理]的介绍中可知，
+监听`data`事件后文件中的内容便立即开始源源不断地传给了`doSomethingWith()`。
+如果`doSomethingWith`处理数据较慢，就需要缓存来不及处理的数据`data`。
+即使同时处理这些数据，也需要全部存储。
+
+理想的情况是下游消耗一个数据，上游才生产一个新数据，这样整体的内存使用就能保持在一个水平。
+这需要下游提供反馈给上游。
+
+用`pipe`方法连接上下游便能达到这个效果。
+```js
+const fs = require('fs')
+fs.createReadStream(file).pipe(writable)
+
+```
+
+`writable`是一个可写流对象，上游会调用其`write`方法将数据写入其中。
+`writable`内部维护了一个写队列，当这个队列长度达到某个阈值（`state.highWaterMark`）时，
+执行`write()`返回便为`false`，否则为`true`。
+
+于是上游可以根据`write()`的返回值来在流动模式和暂停模式间切换。
+```js
+readable.on('data', function (data) {
+  if (false === writable.write(data)) {
+    readable.pause()
+  }
+})
+
+writable.on('drain', function () {
+  readable.resume()
+})
+
+```
+
+上面便是`pipe`方法的核心逻辑。
+
+当`write()`返回`false`时，调用`readable.pause()`使上游进入暂停模式，不再触发`data`事件。
+但是当`writable`将缓存清空时，会触发一个`drain`事件，再调用`readable.resume()`使上游进入流动模式，
+继续触发`data`事件。
+
+可以认为，在上面的机制下，随着下游缓存队列的增加，上游写数据时受到的阻力变大，
+[背压]（[back pressure]）大到一定程度上游便停止写，需要等到[背压]降低时再继续。
+当然，这里上游对[背压]的反应只是停止或继续，并没有连续变化。
+
+使用`pipe()`时，数据的生产和消耗便形成了一个闭环。
+通过负反馈调节上游的数据生产节奏，事实上形成了一种所谓的拉式流（[pull stream]）。
+用喝饮料来说明拉式流和普通流的区别的话，
+后者就像是将杯子里的饮料往嘴里倾倒，动力来源于上游，数据是被推往下游的；
+前者则是用吸管去喝饮料，动力实际来源于下游，数据是被拉去下游的。
+
+### 需要注意的几个问题
+
+#### stream.push('')
+在[流动模式]中，介绍了`push()`如何与`flow()`和`read()`相互调用从而形成数据流动的，
+其中提到了`push()`的两个分支。
+但有一点未提出的是，如果是在非`objectMode`时调用`push('')`，这两个分支都不会进入，其后果便是数据流的中断。
+
+```js
+const Readable = require('stream').Readable
+
+// 底层数据
+const dataSource = ['a', '', 'c']
+
+const readable = Readable()
+readable._read = function () {
+  process.nextTick(() => {
+    var data
+    if (dataSource.length) {
+      data = dataSource.shift()
+    } else {
+      data = null
+    }
+    console.log('push', data)
+    this.push(data)
+  })
+}
+
+readable.on('data', data => console.log('PRINT', data))
+readable.on('end', data => console.log('END'))
+
+```
+
+输出：
+```
+push a
+PRINT <Buffer 61>
+push
+
+```
+
+可见，`push('')`后，流被中断了，一直没有结束。
+
+#### 同一次_read()中多次调用push()
+一旦调用`push()`，这次从底层读取数据的工作就算完成了，
+`read()`中设置的状态也就清除了。
+如果多次调用`push()`，那么从第二次开始，
+这些调用便等于是未经过`read()`设置标记的，就可能出错。
+
+```js
+const Readable = require('stream').Readable
+
+// 底层数据
+const dataSource = ['a']
+
+const readable = Readable()
+readable._read = function () {
+  const data = dataSource.shift()
+  if (data) {
+    this.push('a')
+    process.nextTick(() => {
+      this.push('b')
+    })
+  } else {
+    this.push(null)
+  }
+}
+
+readable.on('data', data => console.log('PRINT', data))
+
+```
+
+执行上面代码时可以看到报错信息
+```
+Error: stream.push() after EOF
+```
+
+原因是`this.push('b')`实际上是在`this.push(null)`后才执行的。
+
+如果所有`push()`都是在同一个tick中，便不会有问题。
 
 ## 相关
-- [Node.js Stream入门](basics.md)
-- [Node.js Stream程序设计](programming.md)
+- [Node.js Stream - 基础篇](basics.md)
+- [Node.js Stream - 实战篇](programming.md)
 
 ## 参考文献
 - [substack#browserify-handbook]
@@ -377,5 +535,16 @@ data: c
 [迭代器]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols
 [substack#browserify-handbook]: https://github.com/substack/browserify-handbook
 [zoubin#streamify-your-node-program]: https://github.com/zoubin/streamify-your-node-program
-[read]: read.png
+[`fs.read()`]: https://nodejs.org/api/fs.html#fs_fs_read_fd_buffer_offset_length_position_callback
+[`EventEmitter`]: https://nodejs.org/api/events.html#events_class_eventemitter
+[背压]: http://baike.baidu.com/link?url=MvuUdBitMnXIa1qj5MZihQbK6c1KDMW6HLPGZMGEUP7DlBbxJsAfV80lXKPKSteQrlh1ikEN0CYQOCW0PNvnx_
+[back pressure]: https://en.wikipedia.org/wiki/Back_pressure
+[pull stream]: http://howtonode.org/streams-explained
 
+[read]: read.png
+[data-flow]: data-flow.png
+[flow-read-push]: flow-read-push.png
+[flowing-mode]: flowing-mode.png
+
+[流动模式]: #流动模式
+[流式数据生产原理]: #流式数据生产原理
