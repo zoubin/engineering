@@ -393,6 +393,7 @@ fs.createReadStream(file).on('data', doSomething)
 如果`doSomething`处理数据较慢，就需要缓存来不及处理的数据`data`。
 即使同时处理这些数据，也需要全部存储。
 
+#### pipe
 理想的情况是下游消耗一个数据，上游才生产一个新数据，这样整体的内存使用就能保持在一个水平。
 这需要下游提供反馈给上游。
 
@@ -427,16 +428,204 @@ writable.on('drain', function () {
 但是当`writable`将缓存清空时，会触发一个`drain`事件，再调用`readable.resume()`使上游进入流动模式，
 继续触发`data`事件。
 
-可以认为，在上面的机制下，随着下游缓存队列的增加，上游写数据时受到的阻力变大。
+看一个例子：
+```js
+const stream = require('stream')
+
+var c = 0
+const readable = stream.Readable({
+  highWaterMark: 2,
+  read: function () {
+    process.nextTick(() => {
+    var data = c < 6 ? String.fromCharCode(c + 65) : null
+      console.log('push', ++c, data)
+      this.push(data)
+    })
+  }
+})
+
+const writable = stream.Writable({
+  highWaterMark: 2,
+  write: function (buf, enc, next) {
+    console.log('write', buf)
+  }
+})
+
+readable.pipe(writable)
+
+```
+
+输出：
+```
+read 1 A
+read 2 B
+write <Buffer 41>
+read 3 C
+read 4 D
+
+```
+
+为了便于分析上面的现象，使用[tick-node]将`Readable`的debug信息按tick分组：
+```
+⌘ NODE_DEBUG=stream tick-node back-pressure.js
+STREAM 18930: pipe count=1 opts=undefined
+STREAM 18930: resume
+---------- TICK 1 ----------
+STREAM 18930: resume read 0
+STREAM 18930: read 0
+STREAM 18930: need readable false
+STREAM 18930: length less than watermark true
+STREAM 18930: do read
+STREAM 18930: flow true
+STREAM 18930: read undefined
+STREAM 18930: need readable true
+STREAM 18930: length less than watermark true
+STREAM 18930: reading or ended false
+---------- TICK 2 ----------
+push 1 A
+STREAM 18930: ondata
+write <Buffer 41>
+STREAM 18930: read 0
+STREAM 18930: need readable true
+STREAM 18930: length less than watermark true
+STREAM 18930: do read
+---------- TICK 3 ----------
+push 2 B
+STREAM 18930: ondata
+STREAM 18930: call pause flowing=true
+STREAM 18930: pause
+STREAM 18930: read 0
+STREAM 18930: need readable true
+STREAM 18930: length less than watermark true
+STREAM 18930: do read
+---------- TICK 4 ----------
+push 3 C
+STREAM 18930: emitReadable false
+STREAM 18930: emit readable
+STREAM 18930: flow false
+---------- TICK 5 ----------
+STREAM 18930: maybeReadMore read 0
+STREAM 18930: read 0
+STREAM 18930: need readable false
+STREAM 18930: length less than watermark true
+STREAM 18930: do read
+---------- TICK 6 ----------
+push 4 D
+---------- TICK 7 ----------
+
+```
+
+* TICK 0: `readable.resume()`
+* TICK 1: `readable`在流动模式下开始从底层读取数据
+* TICK 2: `A`被输出，`readable.read()`继续执行。
+  `writable.write('A')`返回`true`。
+* TICK 3: `B`被输出，`readable.read()`继续执行。
+  `writable.write('B')`返回`false`。
+  `readable.pause()`确保数据不再输出。
+* TICK 4: `C`被加到`readable`缓存中。
+  此时，`writable`中有`A`和`B`，`readable`中有`C`。
+  在`readable.push('C')`结束前，发现缓存中只有1个数据，小于设定的`highWaterMark`（2），故准备在下一个tick再读一次数据。
+* TICK 5: 调用`read(0)`从底层取数据。
+* TICK 6: `D`被加到`readable`缓存中。
+  此时，`writable`中有`A`和`B`，`readable`中有`C`和`D`。
+  `readable`缓存中有2个数据，等于设定的`highWaterMark`（2），不再从底层读取数据。
+
+虽然上游一共有6个数据可以生产，但实际中生产了4个，其中上游和下游各缓存了2个。
+
+可以认为，随着下游缓存队列的增加，上游写数据时受到的阻力变大。
 这种[背压]（[back pressure]）大到一定程度时上游便停止写，等到[背压]降低时再继续。
 当然，这里上游对[背压]的反应只是停止或继续，并没有连续变化。
 
+#### 拉式流
 使用`pipe()`时，数据的生产和消耗便形成了一个闭环。
 通过负反馈调节上游的数据生产节奏，事实上形成了一种所谓的拉式流（[pull stream]）。
 
 用喝饮料来说明拉式流和普通流的区别的话，
 普通流就像是将杯子里的饮料往嘴里倾倒，动力来源于上游，数据是被推往下游的；
 拉式流则是用吸管去喝饮料，动力实际来源于下游，数据是被拉去下游的。
+
+上一小节从抑制数据生产的角度看待流的背压机制，如果从促进数据生产的角度来看的话，
+使用拉式流时，便是“按需生产”。如果下游停止消耗，上游便会停止生产。
+所有缓存的数据量便是两者的阈值和。
+
+当使用[`Transform`]作为终点时，尤其需要注意要启动消耗。
+```js
+const stream = require('stream')
+
+var c = 0
+const readable = stream.Readable({
+  highWaterMark: 2,
+  read: function () {
+    process.nextTick(() => {
+      var data = c < 26 ? String.fromCharCode(c++ + 97) : null
+      console.log('push', data)
+      this.push(data)
+    })
+  }
+})
+
+const transform = stream.Transform({
+  highWaterMark: 2,
+  transform: function (buf, enc, next) {
+    console.log('transform', buf)
+    next(null, buf)
+  }
+})
+
+readable.pipe(transform)
+
+```
+以上代码执行结果为：
+```
+push a
+transform <Buffer 61>
+push b
+transform <Buffer 62>
+push c
+push d
+push e
+push f
+
+```
+
+可见，并没有将26个字母全生产出来。
+[`Transform`]中有两个缓存：可写端的缓存和可读端的缓存。
+调用`transform.write()`时，如果可读端缓存未满，数据会经过变换后加入到可读端的缓存中。
+当可读端缓存到达阈值后，再调用`transform.write()`则会将写操作缓存到可写端的缓存队列。
+当可写端的缓存队列也到达阈值时，便不再调用`transform.write()`。
+此时，`readable`的缓存中将维持在阈值水平。
+这三个缓存加起来的长度恰好为6，所以一共就生产了6个数据。
+
+要想将26个数据全生产出来，有两种做法。
+第一种是消耗`transform`中可读端的缓存，以拉动上游的生产：
+```js
+readable.pipe(transform).pipe(process.stdout)
+
+```
+
+第二种是，不要将数据存入可读端中：
+```js
+const transform = stream.Transform({
+  highWaterMark: 2,
+  transform: function (buf, enc, next) {
+    // next()
+  }
+})
+
+```
+
+第二种情况实际上就是构造了一个可写流而已：
+```js
+const transform = stream.Writable({
+  highWaterMark: 2,
+  write: function (buf, enc, next) {
+    // do something with buf
+    // then
+    next()
+  }
+})
+
+```
 
 ### 需要注意的几个问题
 
@@ -529,13 +718,15 @@ Error: stream.push() after EOF
 
 [Node.js]: https://nodejs.org/
 [stream]: https://nodejs.org/api/stream.html
-[Writable]: https://nodejs.org/api/stream.html#stream_class_stream_writable_1
+[`Writable`]: https://nodejs.org/api/stream.html#stream_class_stream_writable_1
+[`Transform`]: https://nodejs.org/api/stream.html#stream_class_stream_transform_1
 [Browserify]: https://github.com/substack/node-browserify
 [Gulp]: https://github.com/gulpjs/gulp
 [Git]: https://git-scm.com/
 [迭代器]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols
 [substack#browserify-handbook]: https://github.com/substack/browserify-handbook
 [zoubin#streamify-your-node-program]: https://github.com/zoubin/streamify-your-node-program
+[tick-node]: https://github.com/zoubin/tick-node
 [`fs.read()`]: https://nodejs.org/api/fs.html#fs_fs_read_fd_buffer_offset_length_position_callback
 [`EventEmitter`]: https://nodejs.org/api/events.html#events_class_eventemitter
 [背压]: http://baike.baidu.com/link?url=MvuUdBitMnXIa1qj5MZihQbK6c1KDMW6HLPGZMGEUP7DlBbxJsAfV80lXKPKSteQrlh1ikEN0CYQOCW0PNvnx_
