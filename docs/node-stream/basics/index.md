@@ -1,4 +1,4 @@
-## Node.js Stream基础
+# Node.js Stream - 基础篇
 [stream]是[Node.js]内置的一个模块，可通过以下方式加载其接口：
 ```js
 var stream = require('stream')
@@ -12,7 +12,16 @@ var Transform = stream.Transform
 
 [stream]暴露的这四个接口均是抽象类，需要实现特定的方法才能构造出可用的实例。
 
-### Readable
+## 目录
+- [Readable](#readable)
+- [Writable](#writable)
+- [Duplex](#duplex)
+- [Transform](#transform)
+- [objectMode](#objectmode)
+- [相关](#相关)
+- [参考文献](#参考文献)
+
+## Readable
 创建可读流。
 
 实例：流式消耗[迭代器]中的数据。
@@ -67,16 +76,17 @@ readable.on('end', () => process.stdout.write('DONE'))
 * 流一旦结束，便不能再调用`push(data)`添加数据。
 
 可以通过监听`data`事件的方式消耗可读流。
-* 在首次监听其`data`事件后，`readable`便会持续不断的调用`_read()`，通过触发`data`事件将取得数据输出。
+* 在首次监听其`data`事件后，`readable`便会持续不断的调用`_read()`，通过触发`data`事件将数据输出。
 * 第一次`data`事件会在下一个tick中触发，所以，可以安全地将数据输出前的逻辑放在事件监听后（同一个tick中）。
-* 当数据全部被消耗时，会触发`end`事件。这个事件是流结束的
+* 当数据全部被消耗时，会触发`end`事件。
 
 上面的例子中，`process.stdout`代表标准输出流，实际是一个可写流。下小节中介绍可写流的用法。
 
-### Writable
+## Writable
 创建可写流。
 
 前面通过继承的方式去创建一类可读流，这种方法也适用于创建一类可写流，只是需要实现的是`_write(data, enc, next)`方法，而不是`_read()`方法。
+
 有些简单的情况下不需要创建一类流，而只是一个流对象，可以用如下方式去做：
 
 ```js
@@ -107,7 +117,7 @@ writable.end('c' + '\n')
 
 在`end`方法调用后，当所有底层的写操作均完成时，会触发`finish`事件。
 
-### Duplex
+## Duplex
 创建可读可写流。
 
 `Duplex`实际上就是继承了`Readable`和`Writable`。
@@ -163,7 +173,7 @@ duplex.end()
 但这里加了点有趣的逻辑。
 上面这个特殊的`duplex`本身不产生数据（`this.chars`是空的），但当它的可写端拿到数据时（`_write`被调用），会将数据作一个变换（`_transform`方法将小写转成大写），再放到可读端去（调用`push`方法）。从而达到了将上游小写字母变换成大写字母输出给下游的目的。
 
-### Transform
+## Transform
 从上面将小写转成大写的例子中，可以看出`Duplex`的可读端和可写端本身是隔离的，没有数据间的传递。`Transform`继承了`Duplex`，并实现了`_read`和`_write`方法，且其逻辑类似于例子中所示，目的就是将可读端和可写端打通，达到“变换数据”的目的。
 
 所以说`Transform`是一类特殊的可读可写流。
@@ -197,7 +207,7 @@ transform.end()
 `_transform`方法有点像集成了`_read`和`_write`的逻辑。
 调用`push(data)`来为可读端提供数据，同步或异步地调用`next`方法来表示此次转换已经完成，可以开始处理下一个数据。
 
-### objectMode
+## objectMode
 前面几节的例子中，经常看到调用`data.toString()`。这个`toString()`的调用是必须的吗？
 本节介绍完如何控制流中的数据类型后，自然就有了答案。
 
