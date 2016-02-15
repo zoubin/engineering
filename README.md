@@ -6,10 +6,7 @@
 ## 2016
 - [HTTP: HTTPS](docs/http-security/https.md)
 - [HTTP: Authentication](docs/http-security/authentication.md)
-- [NODE: Stream - 前言](docs/node-stream/introduction.md)
-- [NODE: Stream - 入门](docs/node-stream/basics.md)
-- [NODE: Stream - 进阶](docs/node-stream/principles.md)
-- [NODE: Stream - 实战](docs/node-stream/programming.md)
+- [NODE: Stream](docs/node-stream/index.md)
 
 ## 2015
 - [CSS: Cascading](docs/css-cascading/index.md)
