@@ -1,6 +1,4 @@
 # Node.js Stream
-
-## 前言
 在构建大型系统时，通常将其拆解为功能独立的若干部分，
 这些部分的接口都遵循一定的规范，通过某种方式连接起来，以共同完成较复杂的任务。
 
@@ -15,23 +13,6 @@
   从[Browserify]和[Gulp]总结出两种设计模式，
   并基于[stream]构建一个为[Git]仓库自动生成changelog的应用。
 
-## 目录
-- [基础篇]
-  - [Readable](basics.md#readable)
-  - [Writable](basics.md#writable)
-  - [Duplex](basics.md#duplex)
-  - [Transform](basics.md#transform)
-  - [objectMode](basics.md#objectmode)
-- [进阶篇]
-  - [流式数据生产原理](principles.md#流式数据生产原理)
-  - [背压原理](principles.md#背压原理)
-  - [需要注意的几个问题](principles.md#需要注意的几个问题)
-- [实战篇]
-  - [实例](programming.md#实例)
-  - [Browserify](programming.md#browserify)
-  - [Gulp](programming.md#gulp)
-
-
 [背压]: http://baike.baidu.com/link?url=MvuUdBitMnXIa1qj5MZihQbK6c1KDMW6HLPGZMGEUP7DlBbxJsAfV80lXKPKSteQrlh1ikEN0CYQOCW0PNvnx_
 [back pressure]: https://en.wikipedia.org/wiki/Back_pressure
 [Browserify]: https://github.com/substack/node-browserify
@@ -40,6 +21,6 @@
 [Node.js]: https://nodejs.org/
 [stream]: https://nodejs.org/api/stream.html
 
-[基础篇]: basics.md
-[进阶篇]: principles.md
-[实战篇]: programming.md
+[基础篇]: basics/index.md
+[进阶篇]: internals/index.md
+[实战篇]: programming/index.md

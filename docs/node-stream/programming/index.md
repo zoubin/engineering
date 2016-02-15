@@ -7,8 +7,8 @@
 ### Gulp
 
 ## 相关
-- [Node.js Stream - 基础篇](basics.md)
-- [Node.js Stream - 进阶篇](principles.md)
+- [Node.js Stream - 基础篇](../basics/index.md)
+- [Node.js Stream - 进阶篇](../internals/index.md)
 
 ## 参考文献
 - [substack#browserify-handbook]

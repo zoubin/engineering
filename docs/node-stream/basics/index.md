@@ -254,8 +254,8 @@ b
 可见，设置`objectMode`后，`push(data)`的数据被原样的输出了。此时，可以生产任意类型的数据。
 
 ## 相关
-- [Node.js Stream - 进阶篇](principles.md)
-- [Node.js Stream - 实战篇](programming.md)
+- [Node.js Stream - 进阶篇](../internals/index.md)
+- [Node.js Stream - 实战篇](../programming/index.md)
 
 ## 参考文献
 - [substack#browserify-handbook]
