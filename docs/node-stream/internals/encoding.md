@@ -138,12 +138,10 @@ YMJj
 
 与可读流相比，没有了`options.encoding`，意味着`chunk`不再是解码的结果。
 
-`encoding`仍然是控制`data`的编码，所以在非对象模式下，`chunk`一定是`Buffer`对象，也就是`data`的二进制表示。
-
 `readable.push`与`writable.write`都是往流中添加数据，`push`方法会使数据经历编码和解码两个步骤再输出，但`write`只有编码这一个环节。
 事实上[`Writable`]不能设置`options.encoding`。
 
-所以，如果不是对象模式，`chunk`一定是`Buffer`对象，`_write`中的`encoding`值一定是`buffer`。
+所以，如果不是对象模式，`chunk`一定是`Buffer`对象，`_write`中的`enc`值一定是`buffer`。
 ```js
 const stream = require('stream')
 

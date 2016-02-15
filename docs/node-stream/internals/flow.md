@@ -224,6 +224,5 @@ if (state.flowing && state.length === 0 && !state.sync) {
 [`EventEmitter`]: https://nodejs.org/api/events.html#events_class_eventemitter
 [背压]: http://baike.baidu.com/link?url=MvuUdBitMnXIa1qj5MZihQbK6c1KDMW6HLPGZMGEUP7DlBbxJsAfV80lXKPKSteQrlh1ikEN0CYQOCW0PNvnx_
 
-[data-flow]: assets/data-flow.svg
-[flowing-mode]: assets/flowing-mode.svg
+[flowing-mode]: assets/flowing-mode.png
 

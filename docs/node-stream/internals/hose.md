@@ -58,7 +58,7 @@ fs.createReadStream(file).pipe(process.stdout)
 ![how-data-comes-out]
 
 ## read
-本小节具体了解一下`read`方法的细节。
+`read`方法中的逻辑可用下图表示，后面几节将对该图中各环节加以说明。
 
 ![read]
 
@@ -167,5 +167,5 @@ if (doRead) {
 [`fs.read`]: https://nodejs.org/api/fs.html#fs_fs_read_fd_buffer_offset_length_position_callback
 [`Readable`]: https://nodejs.org/api/stream.html#stream_class_stream_readable_1
 
-[how-data-comes-out]: assets/how-data-comes-out.svg
-[read]: assets/read.svg
+[how-data-comes-out]: assets/how-data-comes-out.png
+[read]: assets/read.png
