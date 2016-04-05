@@ -1,19 +1,15 @@
 # Node.js Stream
-在构建大型系统时，通常将其拆解为功能独立的若干部分，
-这些部分的接口都遵循一定的规范，通过某种方式连接起来，以共同完成较复杂的任务。
+在构建复杂系统时，通常将其拆解为功能独立的若干部分，通过一定的接口规范连接起来，以共同完成较复杂的任务。
 
-在unix中，shell通过管道`|`连接各部分，其输入输出的规范是文本流。
-在[Node.js]中，内置的[stream]模块也实现了类似功能，组件间通过`.pipe()`连接。
+在unix中，shell通过管道`|`连接各部分，输入输出为文本流。
+在[Node.js]中，内置的[stream]模块也实现了类似功能，各部分通过通过`.pipe()`连接，输入输出可以是普通的文本流，也可以是对象流。
 
-本系列试着从三个方面介绍[stream]相关的内容，这三部分各自独立，无须从头至尾全部读完。
+本系列试着从三个方面介绍[stream]相关的内容：
 * 第一部分：[基础篇]。介绍[stream]接口的基本使用。
-* 第二部分：[进阶篇]。
-  重点剖析[stream]底层如何支持流式数据处理，及其[背压]（[back pressure]）机制。
-* 第三部分：[实战篇]。介绍如何使用[stream]进行程序设计。
-  从[Browserify]和[Gulp]总结出两种设计模式，
-  并基于[stream]构建一个为[Git]仓库自动生成changelog的应用。
+* 第二部分：[进阶篇]。重点剖析[stream]底层如何支持流式数据处理，及其[背压]（[back pressure]）机制。
+* 第三部分：[实战篇]。介绍如何使用[stream]进行程序设计。从[Browserify]和[Gulp]的实现总结出两种模式，并基于[stream]构建一个为[Git]仓库自动生成changelog的应用作为示例。
 
-[背压]: http://baike.baidu.com/link?url=MvuUdBitMnXIa1qj5MZihQbK6c1KDMW6HLPGZMGEUP7DlBbxJsAfV80lXKPKSteQrlh1ikEN0CYQOCW0PNvnx_
+[背压]: http://baike.baidu.com/view/1036778.htm
 [back pressure]: https://en.wikipedia.org/wiki/Back_pressure
 [Browserify]: https://github.com/substack/node-browserify
 [Gulp]: https://github.com/gulpjs/gulp

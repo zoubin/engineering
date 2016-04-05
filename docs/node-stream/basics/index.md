@@ -1,5 +1,5 @@
 # Node.js Stream - 基础篇
-[stream]是[Node.js]内置的一个模块，可通过以下方式加载其接口：
+[stream]提供了以下四种类型的流：
 ```js
 var stream = require('stream')
 
@@ -10,9 +10,15 @@ var Transform = stream.Transform
 
 ```
 
-[stream]暴露的这四个接口均是抽象类，需要实现特定的方法才能构造出可用的实例。
+使用`Stream`可实现数据的流式处理，如：
+```js
+var fs = require('fs')
+// `fs.createReadStream`创建一个`Readable`对象以读取`bigFile`的内容，并输出到标准输出
+// 如果使用`fs.readFile`则可能由于文件过大而失败
+fs.createReadStream(bigFile).pipe(process.stdout)
 
-## 目录
+```
+
 - [Readable](#readable)
 - [Writable](#writable)
 - [Duplex](#duplex)
@@ -37,11 +43,16 @@ class ToReadable extends Readable {
       yield * iterable
     }
   }
+
+  // 子类需要实现该方法
+  // 这是生产数据的逻辑
   _read() {
     const res = this.iterator.next()
     if (res.done) {
+      // 数据源已枯竭，调用`push(null)`通知流
       this.push(null)
     } else {
+      // 通过`push`方法将数据添加到流中
       this.push(res.value + '\n')
     }
   }
@@ -61,7 +72,11 @@ const iterable = function *(limit) {
 }(1e10)
 
 const readable = new ToReadable(iterable)
+
+// 监听`data`事件，一次获取一个数据
 readable.on('data', data => process.stdout.write(data))
+
+// 所有数据均已读完
 readable.on('end', () => process.stdout.write('DONE'))
 
 ```
@@ -94,28 +109,33 @@ readable.on('end', () => process.stdout.write('DONE'))
 const Writable = require('stream').Writable
 
 const writable = Writable()
+// 实现`_write`方法
+// 这是将数据写入底层的逻辑
 writable._write = function (data, enc, next) {
+  // 将流中的数据写入底层
   process.stdout.write(data.toString().toUpperCase())
+  // 写入完成时，调用`next()`方法通知流传入下一个数据
   process.nextTick(next)
 }
 
+// 所有数据均已写入底层
 writable.on('finish', () => process.stdout.write('DONE'))
 
+// 将数据写入流中
 writable.write('a' + '\n')
 writable.write('b' + '\n')
-writable.end('c' + '\n')
+writable.write('c' + '\n')
+
+// 再无数据写入流时，需要调用`end`方法
+writable.end()
 
 ```
 
-在`_write`中，**必须**调用`next(err)`来通知流此次底层的写操作已经完成，可以开始处理下一个数据。
-
-上游通过调用`writable.write(data)`将数据写入可写流中，`write()`方法会调用`_write()`将`data`写入底层。当`_write`调用`next`方法时，表示底层的写操作完成，`writable`可以继续调用`_write`将新数据写入底层。
-
-与可读流的`push`方法类似，`next`的调用既可以是同步的，也可以是异步地。譬如这里就是在下一个tick中。
-
-上游**必须**调用`writable.end(data)`来结束可写流，`data`是可选的。此后，不能再调用`write`新增数据。
-
-在`end`方法调用后，当所有底层的写操作均完成时，会触发`finish`事件。
+* 上游通过调用`writable.write(data)`将数据写入可写流中。`write()`方法会调用`_write()`将`data`写入底层。
+* 在`_write`中，当数据成功写入底层后，**必须**调用`next(err)`告诉流开始处理下一个数据。
+* `next`的调用既可以是同步的，也可以是异步的。
+* 上游**必须**调用`writable.end(data)`来结束可写流，`data`是可选的。此后，不能再调用`write`新增数据。
+* 在`end`方法调用后，当所有底层的写操作均完成时，会触发`finish`事件。
 
 ## Duplex
 创建可读可写流。
@@ -123,43 +143,34 @@ writable.end('c' + '\n')
 `Duplex`实际上就是继承了`Readable`和`Writable`。
 所以，一个`Duplex`对象既可当成可读流来使用（需要实现`_read`方法），也可当成可写流来使用（需要实现`_write`方法）。
 
-实现一个将字符流中小写字母转成大写的`Duplex`:
 ```js
-'use strict'
-const Duplex = require('stream').Duplex
+var Duplex = require('stream').Duplex
 
-class ToUpperCase extends Duplex{
-  constructor() {
-    super()
-    this.chars = []
+var duplex = Duplex()
 
-    this.once('finish', function () {
-      this.push(null)
-    })
-  }
-
-  _read() {
-    if (this.chars.length) {
-      this.push(this._transform(this.chars.shift()))
-    }
-  }
-
-  _write(data, enc, next) {
-    this.chars.push(data.toString())
-    this._read()
-    next()
-  }
-
-  _transform(str) {
-    return str.toUpperCase()
+// 可读端底层读取逻辑
+duplex._read = function () {
+  this._readNum = this._readNum || 0
+  if (this._readNum > 1) {
+    this.push(null)
+  } else {
+    this.push('' + (this._readNum++))
   }
 }
 
-const duplex = new ToUpperCase()
-duplex.on('data', data => process.stdout.write(data))
+// 可写端底层写逻辑
+duplex._write = function (buf, enc, next) {
+  // a, b
+  process.stdout.write('_write ' + buf.toString() + '\n')
+  next()
+}
 
-duplex.write('hello, ')
-duplex.write('world!')
+// 0, 1
+duplex.on('data', data => console.log('ondata', data.toString()))
+
+duplex.write('a')
+duplex.write('b')
+
 duplex.end()
 
 ```
@@ -170,42 +181,56 @@ duplex.end()
 因为它既可读又可写，所以称它有两端：可写端和可读端。
 可写端的接口与`Writable`一致，作为下游来使用；可读端的接口与`Readable`一致，作为上游来使用。
 
-但这里加了点有趣的逻辑。
-上面这个特殊的`duplex`本身不产生数据（`this.chars`是空的），但当它的可写端拿到数据时（`_write`被调用），会将数据作一个变换（`_transform`方法将小写转成大写），再放到可读端去（调用`push`方法）。从而达到了将上游小写字母变换成大写字母输出给下游的目的。
-
 ## Transform
-从上面将小写转成大写的例子中，可以看出`Duplex`的可读端和可写端本身是隔离的，没有数据间的传递。`Transform`继承了`Duplex`，并实现了`_read`和`_write`方法，且其逻辑类似于例子中所示，目的就是将可读端和可写端打通，达到“变换数据”的目的。
+在上面的例子中，可读流中的数据（0, 1）与可写流中的数据（'a', 'b'）是隔离开的，但在`Transform`中可写端写入的数据经变换后会自动添加到可读端。
+`Tranform`继承自`Duplex`，并已经实现了`_read`和`_write`方法，同时要求用户实现一个`_transform`方法。
 
-所以说`Transform`是一类特殊的可读可写流。
-
-用`Transform`重写上面的例子：
 ```js
 'use strict'
+
 const Transform = require('stream').Transform
 
-class ToUpperCase extends Transform {
-  constructor() {
+class Rotate extends Transform {
+  constructor(n) {
     super()
+    // 将字母旋转`n`个位置
+    this.offset = (n || 13) % 26
   }
-  _transform(data, enc, next) {
-    this.push(data.toString().toUpperCase())
+
+  // 将可写端写入的数据变换后添加到可读端
+  _transform(buf, enc, next) {
+    var res = buf.toString().split('').map(c => {
+      var code = c.charCodeAt(0)
+      if (c >= 'a' && c <= 'z') {
+        code += this.offset
+        if (code > 'z'.charCodeAt(0)) {
+          code -= 26
+        }
+      } else if (c >= 'A' && c <= 'Z') {
+        code += this.offset
+        if (code > 'Z'.charCodeAt(0)) {
+          code -= 26
+        }
+      }
+      return String.fromCharCode(code)
+    }).join('')
+
+    // 调用push方法将变换后的数据添加到可读端
+    this.push(res)
+    // 调用next方法准备处理下一个
     next()
   }
+
 }
 
-const transform = new ToUpperCase()
+var transform = new Rotate(3)
 transform.on('data', data => process.stdout.write(data))
-
 transform.write('hello, ')
 transform.write('world!')
 transform.end()
 
+// khoor, zruog!
 ```
-
-**注意**：使用`Duplex`时，可以实现`_read`或`_write`，或两者都实现，但不要求实现`_transform`方法。使用`Transform`时，不要去实现`_read`和`_write`，而是要实现`_transform`。这个方法就是变换数据的逻辑。
-
-`_transform`方法有点像集成了`_read`和`_write`的逻辑。
-调用`push(data)`来为可读端提供数据，同步或异步地调用`next`方法来表示此次转换已经完成，可以开始处理下一个数据。
 
 ## objectMode
 前面几节的例子中，经常看到调用`data.toString()`。这个`toString()`的调用是必须的吗？

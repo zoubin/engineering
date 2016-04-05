@@ -239,7 +239,7 @@ const transform = stream.Transform({
 [`Writable`]: https://nodejs.org/api/stream.html#stream_class_stream_writable_1
 [`Transform`]: https://nodejs.org/api/stream.html#stream_class_stream_transform_1
 [tick-node]: https://github.com/zoubin/tick-node
-[背压]: http://baike.baidu.com/link?url=MvuUdBitMnXIa1qj5MZihQbK6c1KDMW6HLPGZMGEUP7DlBbxJsAfV80lXKPKSteQrlh1ikEN0CYQOCW0PNvnx_
+[背压]: http://baike.baidu.com/view/1036778.htm
 [back pressure]: https://en.wikipedia.org/wiki/Back_pressure
 [pull stream]: http://howtonode.org/streams-explained
 
