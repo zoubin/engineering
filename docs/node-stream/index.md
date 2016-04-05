@@ -9,6 +9,13 @@
 * 第二部分：[进阶篇]。重点剖析[stream]底层如何支持流式数据处理，及其[背压]（[back pressure]）机制。
 * 第三部分：[实战篇]。介绍如何使用[stream]进行程序设计。从[Browserify]和[Gulp]的实现总结出两种模式，并基于[stream]构建一个为[Git]仓库自动生成changelog的应用作为示例。
 
+- [基础篇]
+- [进阶篇]
+- [实战篇]
+- 番外篇
+  - [流对数据的编码与解码](extra/encoding.md)
+  - [几个需要注意的问题](extra/bonus.md)
+
 [背压]: http://baike.baidu.com/view/1036778.htm
 [back pressure]: https://en.wikipedia.org/wiki/Back_pressure
 [Browserify]: https://github.com/substack/node-browserify
