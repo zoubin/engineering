@@ -259,7 +259,7 @@ b.bundle().pipe(fs.createWriteStream('bundle.js'))
 
 类似于[Browserify]提供的模块定义（用`row`表示），[vinyl-fs]也提供了文件定义（[vinyl]对象）。
 
-[Browserify]的管道处理的是`row`流，[Gulp]文件处理的逻辑也是通过管道去处理[vinyl]流：
+[Browserify]的管道处理的是`row`流，[Gulp]管道处理[vinyl]流：
 
 ```js
 gulp.task('scripts', ['clean'], function() {
@@ -276,9 +276,10 @@ gulp.task('scripts', ['clean'], function() {
 
 ```
 
-任务中创建的管道起始于`gulp.src`，终止于`gulp.dest`，中间有若干其它的Transform。
+任务中创建的管道起始于`gulp.src`，终止于`gulp.dest`，中间有若干其它的Transform（插件）。
 
-如果与[Browserify]的管道对比，可以发现[Browserify]是确定了一条具有完整功能的管道，而[Gulp]本身只提供了创建[vinyl]流和将[vinyl]流写入磁盘的工具，管道中间经历什么全由用户决定，因为任务中做什么，是没有任何限制的，文件处理也只是常见的情况，并非一定要用`gulp.src`与`gulp.dest`。
+如果与[Browserify]的管道对比，可以发现[Browserify]是确定了一条具有完整功能的管道，而[Gulp]本身只提供了创建[vinyl]流和将[vinyl]流写入磁盘的工具，管道中间经历什么全由用户决定。
+这是因为任务中做什么，是没有任何限制的，文件处理也只是常见的情况，并非一定要用`gulp.src`与`gulp.dest`。
 
 ## 两种模式
 [Browserify]与[Gulp]都借助管道的概念来实现插件机制。
@@ -518,6 +519,7 @@ source
 [envify]: https://github.com/hughsk/envify
 [babelify]: https://github.com/babel/babelify
 [orchestrator]: https://github.com/robrich/orchestrator
-[vinyl-fs]: https://github.com/wearefractal/vinyl-fs
+[vinyl-fs]: https://github.com/gulpjs/vinyl-fs
+[vinyl]: https://github.com/gulpjs/vinyl
 [ezchangelog]: https://github.com/zoubin/ezchangelog
 
