@@ -1,7 +1,6 @@
 ## Drafts
 - [JS: 原型趣事](docs/prototype-in-js.md)
-- [JS: 异步流程控制](docs/async-control.md)
-- [JS: 迭代器](docs/iterator.md)
+- [JS: 异步流程控制](docs/promise-generator-async-await.md)
 
 ## 2016
 - [HTTP: HTTPS](docs/http-security/https.md)
