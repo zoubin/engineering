@@ -201,6 +201,10 @@ Math.pow(2, 31) - 2
 
 因此，位操作时需要确保不超过32位可表示的整数范围。
 
+## 更多参考
+- <http://www.2ality.com/2012/04/number-encoding.html>
+- <http://www.2ality.com/2012/07/large-integers.html>
+
 
 [IEEE 754-2008]: https://en.wikipedia.org/wiki/IEEE_floating_point
 [rounding]: https://en.wikipedia.org/wiki/Rounding#Round_half_to_even
