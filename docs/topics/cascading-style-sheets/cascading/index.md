@@ -8,7 +8,7 @@
 
 >The **cascading** and **defaulting** process takes a set of declarations as input, and outputs a specified value for each property on each element.
 
-![value](images/process-value.png)
+![value](process-value.png)
 
 ## Cascading
 

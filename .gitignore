@@ -7,3 +7,4 @@ public/
 themes/
 .deploy*/
 npm-debug.log
+_site/

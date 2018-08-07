@@ -670,6 +670,6 @@ const transform = stream.Transform({
 [`Transform`]: https://nodejs.org/api/stream.html#stream_class_stream_transform_1
 [`fs.read`]: https://nodejs.org/api/fs.html#fs_fs_read_fd_buffer_offset_length_position_callback
 
-[read]: assets/read.png
-[flowing-mode]: assets/flowing-mode.png
-[how-data-comes-out]: assets/how-data-comes-out.png
+[read]: read.png
+[flowing-mode]: flowing-mode.png
+[how-data-comes-out]: how-data-comes-out.png

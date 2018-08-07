@@ -1,6 +1,4 @@
-# electron
-
-## Install
+# Install
 If failed to install [electron],
 try to run the following script before `npm install`.
 See the [issue](https://github.com/electron-userland/electron-prebuilt/issues/66)

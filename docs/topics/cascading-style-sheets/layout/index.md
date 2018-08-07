@@ -16,7 +16,7 @@ The layout of these boxes is governed by:
 ## Containing block
 >The position and size of an element's box(es) are sometimes calculated relative to a certain rectangle, called the containing block of the element.
 
-![containing-block](images/containing-block.png)
+![containing-block](containing-block.png)
 
 ### Initial containing block
 
@@ -43,12 +43,12 @@ The layout of these boxes is governed by:
 
 主要影响盒子类型的还是`display`属性。因此，我们可以通过将一个`span`的`display`设为`block`而将其渲染成块级元素的样子。
 
-![box-type](images/box-type.png)
+![box-type](box-type.png)
 
 ### Computed 'display'
 [Relationships between display, position, and float](https://drafts.csswg.org/css-position/#dis-pos-flo)
 
-![computed-display](images/computed-display.png)
+![computed-display](computed-display.png)
 
 ## Positioning schemes
 
@@ -110,7 +110,7 @@ BFC中盒子的排列特点：
 
 需要注意的是，用于行内排列的盒子并非盒模型确定的盒子。
 
-![inline-box](images/inline-box.png)
+![inline-box](inline-box.png)
 
 #### Line height calculations
 >user agents flow inline-level boxes into a vertical stack of line boxes
@@ -121,7 +121,7 @@ BFC中盒子的排列特点：
 2. 根据每个inline-level box的[vertical-align](http://www.w3.org/TR/CSS2/visudet.html#propdef-vertical-align)属性在垂直方向上排列
 3. 行高即所有盒子中最靠上的边与最靠下的边的距离。
 
-![vertical-align](images/vertical-align.png)
+![vertical-align](vertical-align.png)
 
 **NOTE**: 行高只与line-height和vertical-align有关，与盒子的maring, padding, border, height等无关。
 
@@ -239,7 +239,7 @@ CSS中每个盒子都有一个三维的位置信息，前面的定位机制都�
 * `z-index`用于指定stack-level
 * `z-index`用于创建stacking context
 
-![z-index](images/z-index.png)
+![z-index](z-index.png)
 
 ### More info
 * <https://drafts.csswg.org/css-position/#layered-presentation>

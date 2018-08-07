@@ -1,0 +1,33 @@
+{
+  "name": "cli-blogger",
+  "version": "0.0.1",
+  "description": "write blogs with markdown",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "toc": "node ./bin/create-toc.js > README.md",
+    "test": "bundle exec jekyll serve"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zoubin/engineering.git"
+  },
+  "keywords": [
+    "frontend",
+    "blog",
+    "markdown"
+  ],
+  "author": "zoubin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zoubin/engineering/issues"
+  },
+  "homepage": "https://github.com/zoubin/engineering#readme",
+  "devDependencies": {
+    "fs-extra": "^7.0.0",
+    "globby": "^8.0.1",
+    "markdown": "^0.5.0"
+  }
+}
