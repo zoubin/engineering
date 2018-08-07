@@ -1,6 +1,7 @@
 # command mode in vim
 
 ## ex Commands
+
 command|meaning
 ---|---
 d|Delete lines
@@ -9,6 +10,7 @@ co|Copy lines
 t|Copy lines (a synonym forco)
 
 ### 指定操作的行范围
+
 命令形式|含义
 ---|---
 |直接使用数字

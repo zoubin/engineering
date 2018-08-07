@@ -2,6 +2,7 @@
 
 ## motion command cheat sheet
 ### 单词级别的移动
+
 命令|特点|含义|示例
 ---|---|---|---
 w|exclusive|移至右边第一个“单词首字母位置”|<mark>H</mark>ello World! &raquo;`w` &raquo; Hello <mark>W</mark>orld!
@@ -14,6 +15,7 @@ ge|inclusive|e的反方向|往左+inclusive，T和F是往左+exclusive
 gE|inclusive|E的反方向|-
 
 ### 行内任意跨度
+
 命令|特点|含义|示例
 ---|---|---|---
 fx|inclusive|向右移至字符x的位置|Hell<mark>o</mark> World! &raquo;`fo` &raquo; Hello W<mark>o</mark>rld!<br>Hell<mark>o</mark> World! &raquo;`dfo`&raquo; Hell<mark>r</mark>ld!
@@ -88,6 +90,7 @@ g,|移至更新的修改位置
 
 
 ### Various
+
 命令|含义
 ---|---
 %|在括号（或其它，见后面）的匹配位置间跳转

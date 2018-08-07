@@ -41,14 +41,12 @@ function toMarkdown(tree, limit = 2) {
   return tree.filter(o => !o.isHeader || o.level < 3)
     .sort((a, b) => a.link < b.link ? -1 : 1)
     .map(({isHeader, level, text, link}) => {
-      let res = '-'
-      if (isHeader && level <= limit) {
-        res = '\n' + '#'.repeat(level + 1)
+      if (isHeader) {
+        return level > limit ? '' : '\n' + '#'.repeat(level + 1) + ` ${text}`
       }
-      res += ` [${text}](${link})`
-      if (level === 1) res += '\n---'
-      return res
+      return `- [${text}](${link})`
     })
+    .filter(Boolean)
     .join('\n')
 }
 
