@@ -8,7 +8,8 @@
   },
   "scripts": {
     "toc": "node ./bin/create-toc.js > README.md",
-    "test": "bundle exec jekyll serve"
+    "test": "tap test/*.js",
+    "docs": "bundle exec jekyll serve"
   },
   "repository": {
     "type": "git",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "fs-extra": "^7.0.0",
     "globby": "^8.0.1",
-    "markdown": "^0.5.0"
+    "markdown": "^0.5.0",
+    "tap": "^12.0.1"
   }
 }
