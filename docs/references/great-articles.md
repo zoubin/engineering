@@ -26,4 +26,7 @@
 - [SitePoint: HTML-CSS](https://www.sitepoint.com/html-css/)
 - [SitePoint: WEB](https://www.sitepoint.com/web/)
 
-
+## Security
+- [XSS (Cross Site Scripting) Prevention Cheat Sheet](https://www.owasp.org/index.php/XSS_%28Cross_Site_Scripting%29_Prevention_Cheat_Sheet)
+- [Which characters need to be escaped on HTML?](https://stackoverflow.com/questions/7381974/which-characters-need-to-be-escaped-on-html)
+- [Using character escapes in markup and CSS](https://www.w3.org/International/questions/qa-escapes)
