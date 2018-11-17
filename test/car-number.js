@@ -1,0 +1,16 @@
+const { test } = require('tap')
+const num = require('../snippets/car-number')
+
+test('car number', t => {
+  t.same(num('012', 1), [0, '012'], 'k = 1')
+  t.same(num('012', 2), [1, '002'], 'k = 2')
+  t.same(num('012', 3), [2, '111'], 'k = 3')
+  t.same(num('012', 4), null, 'k is larger than the number of digits, should return null')
+  t.same(num('210', 1), [0, '210'], 'k = 1, reverse')
+  t.same(num('210', 2), [1, '110'], 'k = 2, reverse')
+  t.same(num('210', 3), [2, '111'], 'k = 3, reverse')
+  t.same(num('112233', 1), [0, '112233'], 'k = 1, original, frequency greater than k')
+  t.same(num('332211', 1), [0, '332211'], 'k = 1, original, frequency greater than k, reverse')
+  t.same(num('1223', 2), [0, '1223'], 'k = 2, frequency equal with k')
+  t.end()
+})
