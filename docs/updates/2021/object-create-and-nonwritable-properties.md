@@ -54,22 +54,22 @@ When the abstract operation OrdinarySet is called with Object O, property key P,
 When the abstract operation OrdinarySetWithOwnDescriptor is called with Object O, property key P, value V, ECMAScript language value Receiver, and Property Descriptor (or undefined) ownDesc, the following steps are taken:
 1. Assert: IsPropertyKey(P) is true.
 2. If ownDesc is undefined, then
-  a. Let parent be ? O.[[GetPrototypeOf]]().
-  b. If parent is not null, then
-    i. Return ? parent.[[Set]](P, V, Receiver). c. Else,
-    i. Set ownDesc to the PropertyDescriptor { [[Value]]: undefined, [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }.
+    1. Let parent be ? O.[[GetPrototypeOf]]().
+    1. If parent is not null, then
+        1. Return ? parent.[[Set]](P, V, Receiver). c. Else,
+        1. Set ownDesc to the PropertyDescriptor { [[Value]]: undefined, [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }.
 3. If IsDataDescriptor(ownDesc) is true, then
-  a. If ownDesc.[[Writable]] is false, return false.
-  b. If Type(Receiver) is not Object, return false.
-  c. Let existingDescriptor be ? Receiver.[[GetOwnProperty]](P).
-  d. If existingDescriptor is not undefined, then
-    i. If IsAccessorDescriptor(existingDescriptor) is true, return false.
-    ii. If existingDescriptor.[[Writable]] is false, return false.
-    iii. Let valueDesc be the PropertyDescriptor { [[Value]]: V }.
-    iv. Return ? Receiver.[[DefineOwnProperty]](P, valueDesc).
-  e. Else,
-    i. Assert: Receiver does not currently have a property P.
-    ii. Return ? CreateDataProperty(Receiver, P, V).
+    1. If ownDesc.[[Writable]] is false, return false.
+    1. If Type(Receiver) is not Object, return false.
+    1. Let existingDescriptor be ? Receiver.[[GetOwnProperty]](P).
+    1. If existingDescriptor is not undefined, then
+        1. If IsAccessorDescriptor(existingDescriptor) is true, return false.
+        1. If existingDescriptor.[[Writable]] is false, return false.
+        1. Let valueDesc be the PropertyDescriptor { [[Value]]: V }.
+        1. Return ? Receiver.[[DefineOwnProperty]](P, valueDesc).
+    1. Else,
+        1. Assert: Receiver does not currently have a property P.
+        1. Return ? CreateDataProperty(Receiver, P, V).
 4. Assert: IsAccessorDescriptor(ownDesc) is true.
 5. Let setter be ownDesc.[[Set]].
 6. If setter is undefined, return false.
