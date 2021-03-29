@@ -28,6 +28,9 @@
 - [Node.js Stream - 进阶篇](docs/topics/node/streams/internals/index.md)
 - [Node.js Stream - 实战篇](docs/topics/node/streams/programming/index.md)
 
+### react
+- [快速入门](docs/topics/react/main-concepts.md)
+
 ## updates
 
 ### 2015
@@ -43,3 +46,9 @@
 
 ### 2017
 - [JS中一些有关原型的问题](docs/updates/2017/prototype-in-js.md)
+
+### 2018
+- [fetch](docs/updates/2018/fetch.md)
+
+### 2021
+- [不可写属性的继承问题](docs/updates/2021/object-create-and-nonwritable-properties.md)
