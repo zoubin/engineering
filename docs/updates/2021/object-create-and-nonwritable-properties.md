@@ -1,76 +1,77 @@
 # 不可写属性的继承问题
 
-## `Object.create`与不可写属性的问题
-
 ```javascript
 (() => {
-  const o = {}
-  Object.defineProperty(o, 'x', { value: 1 }) // o.x 不可写
-  const p = Object.create(o)
-  p.x = 2
-  console.log(p.x) // 1 还是 2？
+  const obj = {}
+  Object.defineProperty(obj, 'x', { value: 1 }) // obj.x 不可写
+  const o = Object.create(obj)
+  o.x = 2
+  console.log(o.x) // 1 还是 2？
 })()
 
 ```
 
-关键语句在`p.x = 2`，可以从[ECMA-262](https://www.ecma-international.org/publications-and-standards/standards/ecma-262/)规范中看看这行语句是如何执行的。
+关键语句在`o.x = 2`，可以从[ECMA-262][ecma]规范中看看这行语句是如何执行的。
 
-## 基本流程
-1. `Set (p, 'x', 2, true)`
-1. `p.[[set]]('x', 2, p)`
-1. `OrdinarySet(p, 'x', 2, p)`
-1. `OrdinarySetWithOwnDescriptor(p, 'x', 2, p, undefined)`
-1. `o.[[Set]]('x', 2, p)`
-1. `OrdinarySet(o, 'x', 2, p)`
-1. `OrdinarySetWithOwnDescriptor(o, 'x', 2, p, { writable: false })`
-1. `p.[[set]]('x', 2, p)`返回`false`
-1. `Set (p, 'x', 2, true)`抛出异常
+## 流程分析
 
-**重点**：`p`本身没有`x`属性时，会使用原型链上一级的descriptor。
+对于赋值语句，在规范 [Runtime Semantics: Evaluation][12.15.4] 中可以发现实际执行的是 `PutValue(lref, rval)`。而 [PutValue][6.2.4.9] 中对于对象属性赋值，调用的是 `o.[[Set]]('x', 2, o)`。因此，可以根据[Set][9.1.9]来梳理流程。
 
-## 规范摘要
+1. `o.[[set]]('x', 2, o)`
+2. `OrdinarySet(o, 'x', 2, o)`
+3. `OrdinarySetWithOwnDescriptor(o, 'x', 2, o, undefined)`
+4. `obj.[[Set]]('x', 2, o)`
+5. `OrdinarySet(obj, 'x', 2, o)`
+6. `OrdinarySetWithOwnDescriptor(obj, 'x', 2, o, { writable: false })`
 
-### Set ( O, P, V, Throw )
-The abstract operation Set is used to set the value of a specific property of an object. The operation is called with arguments O, P, V, and Throw where O is the object, P is the property key, V is the new value for the property and Throw is a Boolean flag. This abstract operation performs the following steps:
-1. Assert: Type(O) is Object.
-2. Assert: IsPropertyKey(P) is true.
-3. Assert: Type(Throw) is Boolean.
-4. Let success be ? O.[[Set]](P, V, O).
-5. If success is false and Throw is true, throw a TypeError exception.
-6. Return success.
+`OrdinarySetWithOwnDescriptor`执行了 2 次，第 1 次传入的 `ownDesc` 为 `undefined`，因为 `o` 上没有 `x` 属性。
+从而导致调用 `obj.[[Set]]('x', 2, o)`，触发第二次 `OrdinarySetWithOwnDescriptor` 的调用，不过这次使用的是 `obj` 上的 `ownDesc`。
 
-### [[Set]] ( P, V, Receiver )
-When the [[Set]] internal method of O is called with property key P, value V, and ECMAScript language value Receiver, the following steps are taken:
-1. Return ? OrdinarySet(O, P, V, Receiver).
-
-### OrdinarySet ( O, P, V, Receiver )
-When the abstract operation OrdinarySet is called with Object O, property key P, value V, and ECMAScript language value Receiver, the following steps are taken:
-1. Assert: IsPropertyKey(P) is true.
-2. Let ownDesc be ? O.[[GetOwnProperty]](P).
-3. Return OrdinarySetWithOwnDescriptor(O, P, V, Receiver, ownDesc).
+所以，给对象上非自身属性赋值时，会使用原型上该属性的 `ownDesc`，如果不可写，则这次写操作会失败。
 
 
-### OrdinarySetWithOwnDescriptor ( O, P, V, Receiver, ownDesc )
+## OrdinarySetWithOwnDescriptor ( O, P, V, Receiver, ownDesc )
 When the abstract operation OrdinarySetWithOwnDescriptor is called with Object O, property key P, value V, ECMAScript language value Receiver, and Property Descriptor (or undefined) ownDesc, the following steps are taken:
 1. Assert: IsPropertyKey(P) is true.
 2. If ownDesc is undefined, then
-    1. Let parent be ? O.[[GetPrototypeOf]]().
-    1. If parent is not null, then
-        1. Return ? parent.[[Set]](P, V, Receiver). c. Else,
+
+    a. Let parent be ? O.[[GetPrototypeOf]]().
+
+    b. If parent is not null, then
+
+        1. Return ? parent.[[Set]](P, V, Receiver).
+
+    c. Else,
+
         1. Set ownDesc to the PropertyDescriptor { [[Value]]: undefined, [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }.
+
 3. If IsDataDescriptor(ownDesc) is true, then
-    1. If ownDesc.[[Writable]] is false, return false.
-    1. If Type(Receiver) is not Object, return false.
-    1. Let existingDescriptor be ? Receiver.[[GetOwnProperty]](P).
-    1. If existingDescriptor is not undefined, then
+
+    a. If ownDesc.[[Writable]] is false, return false.
+
+    b. If Type(Receiver) is not Object, return false.
+
+    c. Let existingDescriptor be ? Receiver.[[GetOwnProperty]](P).
+
+    d. If existingDescriptor is not undefined, then
+
         1. If IsAccessorDescriptor(existingDescriptor) is true, return false.
-        1. If existingDescriptor.[[Writable]] is false, return false.
-        1. Let valueDesc be the PropertyDescriptor { [[Value]]: V }.
-        1. Return ? Receiver.[[DefineOwnProperty]](P, valueDesc).
-    1. Else,
+        2. If existingDescriptor.[[Writable]] is false, return false.
+        3. Let valueDesc be the PropertyDescriptor { [[Value]]: V }.
+        4. Return ? Receiver.[[DefineOwnProperty]](P, valueDesc).
+
+    e. Else,
+
         1. Assert: Receiver does not currently have a property P.
-        1. Return ? CreateDataProperty(Receiver, P, V).
+        2. Return ? CreateDataProperty(Receiver, P, V).
+
 4. Assert: IsAccessorDescriptor(ownDesc) is true.
 5. Let setter be ownDesc.[[Set]].
 6. If setter is undefined, return false.
-7. Perform ? Call(setter, Receiver, « V »). 8. Return true.
+7. Perform ? Call(setter, Receiver, « V »).
+8. Return true.
+
+[ecma]: https://www.ecma-international.org/publications-and-standards/standards/ecma-262/
+[12.15.4]: https://262.ecma-international.org/11.0/#sec-assignment-operators-runtime-semantics-evaluation
+[6.2.4.9]: https://262.ecma-international.org/11.0/#sec-putvalue
+[9.1.9]: https://262.ecma-international.org/11.0/#sec-ordinary-object-internal-methods-and-internal-slots-set-p-v-receiver
