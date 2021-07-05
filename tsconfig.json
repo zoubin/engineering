@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "ESNext",
+        "noImplicitAny": false,
+        "declaration": false,
+        "noEmit": true,
+        "removeComments": true,
+        "preserveConstEnums": false,
+        "sourceMap": false,
+        "jsx": "preserve",
+        "typeRoots": ["node_modules/@types"],
+        "lib": ["esnext"],
+        "baseUrl": "."
+    },
+    "compileOnSave": false
+}

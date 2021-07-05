@@ -1,6 +1,7 @@
 
 ## references
 - [JavaScript Decorators](docs/references/decorator.md)
+- [前端开发学习路线](docs/references/font-end-developer-learning-roadmap.md)
 - [Great Articles](docs/references/great-articles.md)
 - [Promises](docs/references/promise-generator-async-await.md)
 
